@@ -8,7 +8,7 @@ export const ms = probe.markets.data.map((m) => normalizeMarket(m as PerpMarket)
 export const btc = ms.find((m) => m.baseSymbol === 'BTC')!,
   eth = ms.find((m) => m.baseSymbol === 'ETH')!;
 const now = new Date(probe.checkedAt).getTime();
-const h = normalizeCandles(
+export const h = normalizeCandles(
   probe.candles900.data.map((c) => ({
     market: btc.id,
     time: Number(c.bucketStart),
@@ -25,7 +25,7 @@ const h = normalizeCandles(
   '15m',
   now,
 );
-const analysis = analyze(h.candles, false);
+export const analysis = analyze(h.candles, false);
 export const account = '0x1111111111111111111111111111111111111111',
   fakeHash = '0x' + 'a'.repeat(64);
 export async function mocks(page: Page, wrongChain = false, outcome = 'success') {
@@ -179,4 +179,19 @@ export async function fillPlan(page: Page) {
     ['Slippage allowance (bps)', '10'],
   ])
     await page.getByRole('textbox', { name: label, exact: true }).fill(value);
+}
+
+// Dashboard rank is live and capped at eight; no particular market is guaranteed a row.
+export async function expectLiveRankedMarkets(page: Page) {
+  const buttons = page.getByRole('button', { name: /^Analyze .+-PERP$/ });
+  await expect(buttons.first()).toBeVisible({ timeout: 30000 });
+  const response = await page.request.get('/api/markets');
+  expect(response.ok()).toBe(true);
+  const discovered = (await response.json()) as { markets: { symbol: string }[] };
+  const allowed = new Set(discovered.markets.map((m) => 'Analyze ' + m.symbol));
+  const labels = await buttons.evaluateAll((elements) =>
+    elements.map((el) => el.getAttribute('aria-label')),
+  );
+  expect(labels.length).toBeGreaterThan(0);
+  expect(labels.every((label) => label !== null && allowed.has(label))).toBe(true);
 }

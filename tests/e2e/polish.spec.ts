@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { expectLiveRankedMarkets } from './fixtures';
 import probe from '../../docs/probe-results.json' with { type: 'json' };
 import { normalizeMarket } from '../../packages/dreamdex-adapter';
 import type { PerpMarket } from '@somnia-chain/markets-sdk';
@@ -77,11 +78,11 @@ test('review every live app screen and save responsive visual evidence', async (
       await expect(page.getByRole('heading', { name, exact: true }).first()).toBeVisible();
     }
     await expect(page.locator('.skeletons')).toHaveCount(0, { timeout: 30000 });
-    if (name === 'Command Center' || name === 'Opportunity Scanner') {
+    if (name === 'Command Center') await expectLiveRankedMarkets(page);
+    if (name === 'Opportunity Scanner')
       await expect(page.getByRole('button', { name: 'Analyze BTC-PERP', exact: true })).toBeVisible(
         { timeout: 30000 },
       );
-    }
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     const slug = name.toLowerCase().replaceAll(/[^a-z]+/g, '-');
     await page.screenshot({
