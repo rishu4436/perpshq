@@ -147,6 +147,7 @@ export type OrderState =
   | 'filled'
   | 'cancelled'
   | 'rejected'
+  | 'reverted'
   | 'unknown';
 export const NETWORK = {
   id: 50383,

@@ -30,6 +30,7 @@ import { AsyncCache, normalizeCandles, aggregateCandles } from '../market-data';
 import { fromRaw } from '../risk-engine';
 import { analyze } from '../opportunity-scoring';
 import Decimal from 'decimal.js';
+import { orderOutcome } from '../trade-planner/evidence';
 
 export const sdk = new SomniaMarkets({
   chain: hidekiTestnet,
@@ -330,7 +331,7 @@ export async function account(address: Address) {
     ),
   };
 }
-export async function prepare(plan: Plan, account: Address) {
+export async function prepare(plan: Plan, account: Address, approvedData?: Hex) {
   if (plan.errors.length) throw new Error(plan.errors.join('; '));
   const m = await marketById(plan.input.marketId),
     quantity = BigInt(plan.rawQuantity);
@@ -376,7 +377,16 @@ export async function prepare(plan: Plan, account: Address) {
   if (!max.priceable) throw new Error('Mark feed is stale; no valid order quote');
   if (!max.placeable || quantity > max.maxQuantity)
     throw new Error(`Order blocked by official account sizing: ${max.limitedBy}`);
-  const expire = BigInt(Date.now() + 86400000) * 1000000n;
+  let expire = BigInt(Date.now() + 86400000) * 1000000n;
+  if (approvedData) {
+    const previous = decodeFunctionData({ abi: perpPoolWriteAbi, data: approvedData });
+    if (previous.functionName !== 'placeOrder')
+      throw new Error('Approved calldata is not a placeOrder request');
+    expire = previous.args[4];
+    const nowNs = BigInt(Date.now()) * 1000000n;
+    if (expire <= nowNs + 30000000000n || expire > nowNs + 86400000000000n)
+      throw new Error('Approved order expiry is invalid or too close. Review a new preview.');
+  }
   const data = encodeFunctionData({
     abi: perpPoolWriteAbi,
     functionName: 'placeOrder',
@@ -392,6 +402,8 @@ export async function prepare(plan: Plan, account: Address) {
       0n,
     ],
   });
+  if (approvedData && data.toLowerCase() !== approvedData.toLowerCase())
+    throw new Error('Order parameters changed. Review a new preview.');
   await rpc.call({ account, to: m.poolAddress, data });
   const gasEstimate = await rpc.estimateGas({ account, to: m.poolAddress, data });
   const gas = (gasEstimate * 125n) / 100n,
@@ -405,6 +417,7 @@ export async function prepare(plan: Plan, account: Address) {
     data,
     value: '0',
     gas: gas.toString(),
+    gasPrice: gasPrice.toString(),
     estimatedGasSTT: fromRaw(gas * gasPrice, 18),
     expiresAt: Date.now() + 30000,
     market: m.symbol,
@@ -417,8 +430,15 @@ export async function prepare(plan: Plan, account: Address) {
 }
 export async function prepareCancel(id: string, orderId: string, account: Address) {
   const m = await marketById(id);
+  if ((await rpc.getChainId()) !== NETWORK.id)
+    throw new Error('RPC chain mismatch; signing disabled');
   const order = await sdk.client.getOrder(m.poolAddress, orderId);
-  if (!order || order.owner.toLowerCase() !== account.toLowerCase())
+  if (
+    !order ||
+    order.owner.toLowerCase() !== account.toLowerCase() ||
+    order.status !== 'Open' ||
+    BigInt(order.quantityRemaining) <= 0n
+  )
     throw new Error('Order is unavailable or belongs to a different account');
   const data = encodeFunctionData({
     abi: perpPoolWriteAbi,
@@ -426,14 +446,19 @@ export async function prepareCancel(id: string, orderId: string, account: Addres
     args: [BigInt(orderId)],
   });
   await rpc.call({ account, to: m.poolAddress, data });
-  const gas = await rpc.estimateGas({ account, to: m.poolAddress, data });
+  const gas = ((await rpc.estimateGas({ account, to: m.poolAddress, data })) * 125n) / 100n;
+  const gasPrice = await rpc.getGasPrice();
+  if ((await rpc.getBalance({ address: account })) < gas * gasPrice)
+    throw new Error('Insufficient STT for estimated cancellation gas');
   return {
     chainId: NETWORK.id,
     account,
     to: m.poolAddress,
     data,
     value: '0',
-    gas: ((gas * 125n) / 100n).toString(),
+    gas: gas.toString(),
+    gasPrice: gasPrice.toString(),
+    estimatedGasSTT: fromRaw(gas * gasPrice, 18),
     expiresAt: Date.now() + 30000,
     market: m.symbol,
     orderId,
@@ -441,6 +466,7 @@ export async function prepareCancel(id: string, orderId: string, account: Addres
 }
 export async function receipt(hash: Hex, id: string, owner: Address) {
   const m = await marketById(id);
+  if ((await rpc.getChainId()) !== NETWORK.id) throw new Error('Receipt RPC chain mismatch');
   const [tx, r] = await Promise.all([
     rpc.getTransaction({ hash }),
     rpc.getTransactionReceipt({ hash }),
@@ -460,6 +486,9 @@ export async function receipt(hash: Hex, id: string, owner: Address) {
       }
     });
   const decoded = decodeFunctionData({ abi: perpPoolWriteAbi, data: tx.input });
+  if (!['placeOrder', 'cancelOrder'].includes(decoded.functionName))
+    throw new Error('Unsupported transaction call; no submission can be reconciled');
+  const block = await rpc.getBlock({ blockNumber: r.blockNumber });
   const placed = events.find((v) => v.eventName === 'OrderPlaced');
   const raw =
     decoded.functionName === 'cancelOrder'
@@ -487,26 +516,15 @@ export async function receipt(hash: Hex, id: string, owner: Address) {
         ? lastFill.args.takerRemainingQuantity
         : lastFill.args.makerRemainingQuantity
       : undefined;
-  const state =
-    r.status === 'reverted'
-      ? 'rejected'
-      : cancelled
-        ? 'cancelled'
-        : order
-          ? order.status === 'Filled'
-            ? 'filled'
-            : ['Cancelled', 'Expired'].includes(order.status)
-              ? 'cancelled'
-              : BigInt(order.quantityRemaining) < BigInt(order.fullQuantity)
-                ? 'partial'
-                : 'resting'
-          : remaining === 0n
-            ? 'filled'
-            : fills.length && rested
-              ? 'partial'
-              : rested
-                ? 'resting'
-                : 'syncing';
+  const state = orderOutcome({
+    reverted: r.status === 'reverted',
+    cancellation: decoded.functionName === 'cancelOrder',
+    cancelled,
+    rested,
+    remaining,
+    fillCount: fills.length,
+    order,
+  });
   return {
     hash,
     network: NETWORK.id,
@@ -514,6 +532,9 @@ export async function receipt(hash: Hex, id: string, owner: Address) {
     pool: m.poolAddress,
     account: owner,
     input: tx.input,
+    transactionStatus: r.status === 'reverted' ? 'reverted' : 'confirmed',
+    transactionTimestamp: Number(block.timestamp) * 1000,
+    indexerStatus: order ? 'available' : raw === undefined ? 'not-observed' : 'unavailable',
     receipt: r,
     events,
     orderId: raw?.toString(),

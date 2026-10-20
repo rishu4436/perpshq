@@ -136,21 +136,7 @@ export interface AccountData {
       }[];
   voucher: unknown;
 }
-export interface Preview {
-  chainId: number;
-  account: string;
-  to: string;
-  data: `0x${string}`;
-  value: string;
-  gas: string;
-  expiresAt: number;
-  market: string;
-  estimatedGasSTT?: string;
-  rawPrice?: string;
-  rawQuantity?: string;
-  orderType?: string;
-  orderId?: string;
-}
+export type Preview = import('../../../packages/trade-planner/approval').TransactionPreview;
 export interface AccountData {
   analytics?:
     | null
@@ -179,4 +165,7 @@ export interface Evidence {
   order?: unknown;
   receipt: { status: string; blockNumber: string; gasUsed: string };
   events: unknown[];
+  transactionStatus?: 'confirmed' | 'reverted';
+  transactionTimestamp?: number;
+  indexerStatus?: string;
 }

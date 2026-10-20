@@ -23,6 +23,11 @@ import {
   type PlanInput,
   type Plan,
 } from '../../../../packages/shared-types';
+import {
+  assertPreview,
+  assertSameApproval,
+  SubmissionFailure,
+} from '../../../../packages/trade-planner/approval';
 import { planTrade, fromRaw } from '../../../../packages/risk-engine';
 import {
   api,
@@ -96,7 +101,9 @@ export function Planner({
     enabled: !!tx && !!wallet.address,
     refetchInterval: (q) =>
       q.state.data &&
-      ['filled', 'cancelled', 'rejected', 'resting', 'partial'].includes(q.state.data.state)
+      ['filled', 'cancelled', 'reverted', 'rejected', 'resting', 'partial'].includes(
+        q.state.data.state,
+      )
         ? false
         : 5000,
     retry: false,
@@ -128,12 +135,7 @@ export function Planner({
     setError('');
     try {
       const p = await api<Preview>('/preview', { input, account: wallet.address });
-      if (
-        p.to.toLowerCase() !== m.poolAddress.toLowerCase() ||
-        p.account.toLowerCase() !== wallet.address.toLowerCase() ||
-        p.chainId !== NETWORK.id
-      )
-        throw new Error('Preview does not match the selected market, account or chain');
+      assertPreview(p, wallet.address, m.poolAddress);
       setPreview(p);
       setConsent(false);
       setNow(Date.now());
@@ -152,14 +154,12 @@ export function Planner({
     setError('');
     try {
       if (Date.now() > preview.expiresAt) throw new Error('Preview expired. Validate again.');
-      const fresh = await api<Preview>('/preview', { input, account: wallet.address });
-      if (
-        fresh.rawPrice !== preview.rawPrice ||
-        fresh.rawQuantity !== preview.rawQuantity ||
-        fresh.to !== preview.to ||
-        fresh.account !== preview.account
-      )
-        throw new Error('Order parameters changed. Review a new preview.');
+      const fresh = await api<Preview>('/preview', {
+        input,
+        account: wallet.address,
+        approvedData: preview.data,
+      });
+      assertSameApproval(preview, fresh);
       setStatus('Awaiting wallet signature');
       const hash = await wallet.send(fresh);
       setTx(hash);
@@ -169,7 +169,15 @@ export function Planner({
     } catch (e) {
       const msg = errorMessage(e);
       setError(msg);
-      setStatus(/reject|denied/i.test(msg) ? 'Signature rejected' : 'Unknown / not broadcast');
+      setStatus(
+        e instanceof SubmissionFailure
+          ? e.outcome === 'rejected'
+            ? 'Signature rejected'
+            : e.outcome === 'unknown'
+              ? 'Unknown broadcast outcome'
+              : 'Blocked'
+          : 'Blocked',
+      );
     } finally {
       setBusy(false);
       lock.current = false;
@@ -646,7 +654,14 @@ export function Positions({
     if (!preview || busy) return;
     setBusy(true);
     try {
-      const hash = await wallet.send(preview);
+      if (!preview.orderId) throw new Error('Cancellation order ID is missing');
+      const fresh = await api<Preview>('/cancel-preview', {
+        marketId: preview.to,
+        orderId: preview.orderId,
+        account: preview.account,
+      });
+      assertSameApproval(preview, fresh);
+      const hash = await wallet.send(fresh);
       onTransaction({ hash, marketId: preview.to, account: preview.account, state: 'pending' });
       setPreview(undefined);
     } catch (e) {
@@ -933,6 +948,13 @@ export function SubmissionRecovery({
       setBusy(false);
     }
   }
+  if (s.invalid)
+    return (
+      <div className="notice danger" role="alert">
+        The stored submission record is unreadable. Signing is locked. Inspect and export browser
+        storage and wallet activity before recovery.
+      </div>
+    );
   return (
     <section className="panel">
       <div className="panel-head">
