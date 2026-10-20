@@ -59,6 +59,7 @@ export function assertSameApproval(reviewed: TransactionPreview, fresh: Transact
     'value',
     'gas',
     'gasPrice',
+    'estimatedGasSTT',
     'rawPrice',
     'rawQuantity',
     'orderType',

@@ -53,6 +53,7 @@ describe('reviewed transaction approval', () => {
     'value',
     'gas',
     'gasPrice',
+    'estimatedGasSTT',
     'rawPrice',
     'rawQuantity',
     'orderType',
