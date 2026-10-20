@@ -1,0 +1,83 @@
+{
+  "checkedAt": "2026-10-20T16:01:29.281Z",
+  "mode": "READ_ONLY / ISOLATED DRY_RUN",
+  "chainId": 50383,
+  "pool": "0x4181dd08e73bbcdd1ba3e615a18f6abd941b94c0",
+  "configId": "874f656d-6c99-4649-b9a0-f9304dfba6af",
+  "keysRequired": false,
+  "signed": false,
+  "broadcast": false,
+  "cloudDeployed": false,
+  "checks": [
+    {
+      "name": "real read-only startup and heartbeat",
+      "ok": true,
+      "details": {
+        "workerId": "verification-primary",
+        "heartbeat": 1792512037484,
+        "broadcastEnabled": false
+      }
+    },
+    {
+      "name": "duplicate process cannot own the same durable volume",
+      "ok": true,
+      "details": {
+        "duplicateExitCode": 3221226505,
+        "leaseOwner": "verification-primary"
+      }
+    },
+    {
+      "name": "process health command reads actual heartbeat",
+      "ok": true,
+      "details": {
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "pause and resume receive actual worker acknowledgements",
+      "ok": true,
+      "details": {
+        "pauseRequestedAt": 1792512040748,
+        "resumeRequestedAt": 1792512042631,
+        "acknowledged": true
+      }
+    },
+    {
+      "name": "graceful bounded process shutdown persists state",
+      "ok": true,
+      "details": {
+        "exitCode": 0,
+        "heartbeatState": "stopped",
+        "decisions": 5,
+        "paperFills": 1
+      }
+    },
+    {
+      "name": "restart restores cursor, ledger and unique decision records",
+      "ok": true,
+      "details": {
+        "exitCode": 0,
+        "previousCursor": 1792511100,
+        "restoredCursor": 1792511100,
+        "decisions": 6,
+        "simulatedFills": 1,
+        "realTransactions": 0
+      }
+    },
+    {
+      "name": "actual pool operator read ABI with synthetic public addresses",
+      "ok": true,
+      "details": {
+        "chainId": 50383,
+        "pool": "0x4181dd08e73bbcdd1ba3e615a18f6abd941b94c0",
+        "block": "28601919",
+        "place": false,
+        "cancel": false,
+        "reduce": false,
+        "accountKind": "no-contract-code",
+        "checkedAt": 1792512089281,
+        "scope": "Synthetic public addresses, not user authorization or an actual linked wallet"
+      }
+    }
+  ]
+}
