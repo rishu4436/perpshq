@@ -12,6 +12,12 @@ The generic Shannon REST market list contained only spot markets. An explicit `B
 
 An unsigned minimum-size order simulation using an existing public collateral account progressed through sizing, RPC simulation and gas estimation, then correctly failed the STT balance guard. This is not a ready-to-sign or signed order. The initial attempted positive check is retained in `verification-initial-simulation-attempt.json`; no authored transaction exists.
 
+## Readiness audit evidence
+
+Use [READINESS-AUDIT.md](READINESS-AUDIT.md) for the current code/tests and timestamped HTTP observations. The historical probe files above remain historical, read-only observations. Mocked preparation/cancellation and browser providers prove code paths only. No separately authorized positive signed order or cancellation exists.
+
+The [exact transaction checklist](TESTNET-TRANSACTION-CHECKLIST.md) covers wallet ownership, STT gas, eligible perps collateral, protocol constraints, exact per-order authorization and recovery. The [genuine evidence folder](testnet-execution/README.md) is prepared with the required report fields and contains no fabricated execution record.
+
 ## Obtain genuine execution evidence
 
 1. Open PerpsHQ in an external browser with an authorized EIP-1193 test wallet. Select chain 50383 using the documented Hideki RPC.

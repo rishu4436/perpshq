@@ -23,7 +23,9 @@ flowchart LR
 - `packages/market-data`: normalized candles, completed-bar policy, gap handling, compatible aggregation, request coalescing cache.
 - `packages/indicator-engine`, `market-structure`, `opportunity-scoring`: pure deterministic calculations.
 - `packages/risk-engine`: Decimal.js planning and exact bigint conversion.
-- `packages/trade-planner`: explicit lifecycle transition rules.
+- `packages/trade-planner`: lifecycle transitions, approval comparison, receipt outcome classification and planning context selection/snapshots.
+- `packages/alert-engine` and `apps/web/src/useAlertMonitoring.ts`: deterministic per-rule evaluation and independent browser query scheduling.
+- `apps/web/src/transaction.ts`: testable EIP-1193 dispatch, persisted intent, timeout and evidence matching.
 - `packages/shared-types`: typed contracts across UI and API.
 
 ## Persistence
@@ -45,3 +47,13 @@ The server returns an unsigned transaction only after exact increment validation
 ## Scaling limits
 
 This implementation binds to loopback. Publishing it requires deployment hardening, an authenticated user-data design if adding synchronization, secret-free environment configuration and a review of proxy/CSP/origin policy. Do not put a signer into this server. Independent account snapshots can describe different blocks; their timestamps are preserved and no exact portfolio liquidation is inferred from them.
+
+## Readiness behavior
+
+Each enabled market alert owns a market/timeframe query, deduplicated with the selected-market query. New alert reads have a two-request concurrency bound and a 60-second refresh interval. Account alerts observe account-query updates independently. Evaluations record checked/observed time and status, preserve the previous trigger while unavailable, and notify only on a new active condition. Rules/history retain their existing storage keys. Margin rules bind legacy records to the first usable account and then refuse another account. Browser closure/throttling interrupts monitoring.
+
+Stale or fewer-than-50-bar history cannot generate directional support/resistance scenarios. Cached UI interpretations also expire after 90 seconds without a successful read. The Planner context panel offers explicit, side-aware draft references and an original snapshot stored additively with plans/journals. Existing records without these optional fields remain readable. Manual edits remove the corresponding reference attribution. Saving a plan or selecting a reference preserves its original context instead of replacing it with later reads.
+
+Chart creation/subscription cleanup is separate from data updates. Existing candle/indicator series receive updates; disabled overlays are removed. Ordinary refreshes and overlay toggles preserve the visible time range. A market/timeframe change intentionally fits the newly selected history. Unmount/remount, browser reload and switching away from the chart start a new view; zoom is not persisted across navigation. When history disappears or an endpoint fails, existing unavailable/error behavior remains visible.
+
+Before dispatch, fresh simulation must match the reviewed chain, account, target, calldata, value, gas/gas price, gas estimate, raw size/price, type and order ID. The server reuses approved order expiry rather than silently changing calldata. Wallet identity revisions and a Web Lock (when supported) guard dispatch; a persistent intent survives timeout, reload and account changes. A late returned hash is retained. Recovery requires exact calldata and a mined matching receipt, with a transaction-time bound when the original hash is unknown. A reverted receipt resolves an intent without implying a successful order. Indexer lag remains separate from transaction confirmation.
