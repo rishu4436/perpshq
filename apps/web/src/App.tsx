@@ -16,7 +16,7 @@ import {
   SettingsPanel,
   WeightSettings,
 } from './components/personal';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
@@ -75,6 +75,7 @@ import {
 } from './lib';
 import { useWallet } from './wallet';
 import { Chart } from './Chart';
+import { useAlertMonitoring } from './useAlertMonitoring';
 import { PerspectiveMark } from './components/identity';
 
 const navigation: [Page, typeof Activity][] = [
@@ -192,7 +193,10 @@ function App() {
               : []),
           ],
         },
-        analysis: reweight(timedOut ? analyze(dq.data.candles, true) : dq.data.analysis, weights),
+        analysis: reweight(
+          timedOut || dq.data.quality.stale ? analyze(dq.data.candles, true) : dq.data.analysis,
+          weights,
+        ),
       };
     }, [dq.data, weights, freshnessClock]),
     analysis = detail?.analysis,
@@ -202,7 +206,9 @@ function App() {
     const rows = (sq.data?.rows ?? []).map((r) => ({
       ...r,
       analysis: reweight(
-        freshnessClock - (sq.data?.fetchedAt ?? 0) > 90000 ? analyze([], true) : r.analysis,
+        freshnessClock - (sq.data?.fetchedAt ?? 0) > 90000 || r.quality.stale
+          ? analyze([], true)
+          : r.analysis,
         weights,
       ),
     }));
@@ -275,46 +281,14 @@ function App() {
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
   }, []);
-  const lastAlertCheck = useRef(0);
-  useEffect(() => {
-    if (!detail || dq.dataUpdatedAt === lastAlertCheck.current) return;
-    lastAlertCheck.current = dq.dataUpdatedAt;
-    const events: AlertEvent[] = [];
-    setRules((old) =>
-      old.map((r) => {
-        if (!r.enabled || r.marketId !== detail.market.id) return r;
-        const value =
-          r.type === 'price-above' || r.type === 'price-below'
-            ? detail.market.error
-              ? null
-              : detail.market.markPrice
-            : r.type === 'rsi-above'
-              ? detail.analysis.values.rsi
-              : r.type === 'atr-above'
-                ? detail.analysis.values.atrPct
-                : account?.margin
-                  ? raw(account.margin.equity, account.quoteDecimals)! -
-                    raw(account.margin.mmReq, account.quoteDecimals)!
-                  : null;
-        if (value === undefined || value === null) return r;
-        const active =
-          r.type === 'price-below' || r.type === 'margin-below'
-            ? value < r.threshold
-            : value > r.threshold;
-        if (active && !r.triggered)
-          events.push({
-            id: crypto.randomUUID(),
-            text: `${r.symbol} · ${r.type.replaceAll('-', ' ')} ${r.threshold} (observed ${fmt(value)})`,
-            time: Date.now(),
-          });
-        return { ...r, triggered: active, checkedAt: Date.now() };
-      }),
-    );
-    if (events.length) {
-      setAlertHistory((old) => [...events, ...old].slice(0, 100));
-      setToast(events[0].text);
-    }
-  }, [dq.dataUpdatedAt]);
+  useAlertMonitoring({
+    rules,
+    setRules,
+    setHistory: setAlertHistory,
+    account,
+    accountError: aq.error,
+    notify: setToast,
+  });
   function toggleWatch(id: string) {
     setWatch((v) => (v.includes(id) ? v.filter((i) => i !== id) : [...v, id]));
   }
@@ -324,7 +298,10 @@ function App() {
   }
   function addJournal(p?: Plan, hash?: string) {
     if (!m) return;
-    setJournal((v) => [journalEntry(m, p, accountAddress, hash), ...v]);
+    setJournal((v) => [
+      journalEntry(ms.find((m) => m.id === p?.input.marketId) ?? m, p, accountAddress, hash),
+      ...v,
+    ]);
     go('Trade Journal');
   }
   function updateEvidence(e: Evidence) {
@@ -353,8 +330,18 @@ function App() {
                 : a.explanations.join(' '),
     );
   }
-  const rising = (sq.data?.rows ?? []).filter((v) => v.analysis.trend === 'Bullish').length,
-    bearish = (sq.data?.rows ?? []).filter((v) => v.analysis.trend === 'Bearish').length;
+  const rising = (sq.data?.rows ?? []).filter(
+      (v) =>
+        !v.quality.stale &&
+        freshnessClock - (sq.data?.fetchedAt ?? 0) <= 90000 &&
+        v.analysis.trend === 'Bullish',
+    ).length,
+    bearish = (sq.data?.rows ?? []).filter(
+      (v) =>
+        !v.quality.stale &&
+        freshnessClock - (sq.data?.fetchedAt ?? 0) <= 90000 &&
+        v.analysis.trend === 'Bearish',
+    ).length;
   const chartPanel = (large = false) => (
     <section className="panel chart-panel">
       <div className="panel-head">

@@ -44,10 +44,18 @@ import {
 } from '../lib';
 import { useWallet } from '../wallet';
 import type { Page } from '../types';
+import { IntelligenceContext } from './intelligence-context';
+import {
+  snapshotContext,
+  contextStatus,
+  entryReference,
+} from '../../../../packages/trade-planner/context';
+import type { MarketContextSnapshot, PlanningReference } from '../../../../packages/shared-types';
 import { Metric, Badge, Empty, ErrorNote, Coin, Skeleton } from './ui';
 
 export function Planner({
   market: m,
+  detail,
   wallet,
   onSave,
   onJournal,
@@ -84,8 +92,28 @@ export function Planner({
     [status, setStatus] = useState('Draft'),
     [tx, setTx] = useState<string>(),
     [now, setNow] = useState(Date.now());
+  const [provenance, setProvenance] = useStored<{
+    context?: MarketContextSnapshot;
+    references: PlanningReference[];
+  }>('perpshq.planner.context.' + m.id, { references: [] });
   const lock = useRef(false);
-  const plan = useMemo(() => planTrade({ ...input, marketId: m.id }, m), [input, m]);
+  const plan = useMemo(
+    () => ({
+      ...planTrade({ ...input, marketId: m.id }, m),
+      context: provenance.context ?? (detail ? snapshotContext(detail) : undefined),
+      references: provenance.references,
+    }),
+    [input, m, detail, provenance],
+  );
+  function applyReference(reference: PlanningReference) {
+    setProvenance((old) => ({
+      context: old.context ?? (detail ? snapshotContext(detail) : undefined),
+      references: [...old.references.filter((r) => r.field !== reference.field), reference],
+    }));
+    setInput((old) => ({ ...old, [reference.field]: reference.value }));
+    setError('');
+    setStatus('Draft');
+  }
   const incomplete = (
     ['entry', 'stop', 'target', 'riskBudget', 'collateral', 'leverage', 'slippageBps'] as const
   ).some((key) => !input[key].trim());
@@ -124,6 +152,8 @@ export function Planner({
     return () => clearInterval(t);
   }, [preview]);
   function field(k: keyof PlanInput, value: string) {
+    if (['entry', 'stop', 'target'].includes(k))
+      setProvenance((old) => ({ ...old, references: old.references.filter((r) => r.field !== k) }));
     setInput((v) => ({ ...v, [k]: value }));
     setError('');
     setStatus('Draft');
@@ -198,6 +228,13 @@ export function Planner({
   );
   return (
     <>
+      <IntelligenceContext
+        detail={detail}
+        input={input}
+        original={provenance.context}
+        onReference={applyReference}
+        onImport={(context) => onJournal({ ...plan, context })}
+      />
       <div className="planner-layout">
         <section className="panel planner-form">
           <div className="panel-head">
@@ -243,8 +280,18 @@ export function Planner({
                 <strong>{price(m.markPrice)}</strong>
                 <button
                   className="text-button"
-                  disabled={!m.markPrice || !!m.error}
-                  onClick={() => field('entry', String(m.markPrice))}
+                  disabled={!contextStatus(detail).markFresh}
+                  onClick={() => {
+                    if (detail && contextStatus(detail).markFresh)
+                      applyReference({
+                        field: 'entry',
+                        source: 'mark',
+                        value: entryReference(detail),
+                        selectedAt: Date.now(),
+                        observedAt: detail.market.markUpdatedAt!,
+                        timeframe: detail.candles[0]?.timeframe ?? '15m',
+                      });
+                  }}
                 >
                   Use mark as entry
                 </button>
@@ -280,7 +327,10 @@ export function Planner({
               <button
                 className="secondary"
                 disabled={plan.errors.length > 0}
-                onClick={() => onSave(plan)}
+                onClick={() => {
+                  setProvenance((old) => ({ ...old, context: plan.context }));
+                  onSave(plan);
+                }}
               >
                 <BookOpen size={14} />
                 Save plan
@@ -466,7 +516,10 @@ export function Planner({
               <div className="summary-row">
                 <span>Quantity</span>
                 <strong>
-                  {plan.quantity} {m.baseSymbol}
+                  {preview.rawQuantity
+                    ? fromRaw(preview.rawQuantity, m.baseDecimals)
+                    : 'Unavailable'}{' '}
+                  {m.baseSymbol}
                 </strong>
               </div>
               <div className="summary-row">
@@ -637,13 +690,14 @@ export function Positions({
     setBusy(true);
     setError('');
     try {
-      setPreview(
-        await api<Preview>('/cancel-preview', {
-          marketId: m.id,
-          orderId: id,
-          account: wallet.address,
-        }),
-      );
+      const p = await api<Preview>('/cancel-preview', {
+        marketId: m.id,
+        orderId: id,
+        account: wallet.address,
+      });
+      assertPreview(p, wallet.address!, m.poolAddress);
+      if (p.orderId !== id) throw new Error('Cancellation order ID changed');
+      setPreview(p);
     } catch (e) {
       setError(errorMessage(e));
     } finally {

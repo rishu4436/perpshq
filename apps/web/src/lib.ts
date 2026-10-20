@@ -74,6 +74,7 @@ export function journalEntry(m: Market, plan?: Plan, wallet?: string, hash?: str
     emotion: 'Neutral',
     review: '',
     plan,
+    context: plan?.context,
     transactionHash: hash,
   };
 }
