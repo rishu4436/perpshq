@@ -244,6 +244,8 @@ function App() {
       setPage(navigation.some((v) => v[0] === p) ? p : 'Command Center');
     };
     window.addEventListener('hashchange', h);
+    // Navigation can happen after initial render but before passive effects attach.
+    h();
     return () => window.removeEventListener('hashchange', h);
   }, []);
   useEffect(() => {
