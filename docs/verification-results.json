@@ -1,0 +1,158 @@
+{
+  "checkedAt": "2026-10-20T08:22:57.347Z",
+  "base": "http://127.0.0.1:3002",
+  "mode": "READ ONLY — no wallet signing or broadcasting",
+  "results": [
+    {
+      "name": "health",
+      "ok": true,
+      "ms": 31,
+      "summary": {
+        "ok": true,
+        "name": "PerpsHQ",
+        "chainId": 50383,
+        "mode": "read-only API / browser signing",
+        "now": 1792484566577
+      }
+    },
+    {
+      "name": "discovery",
+      "ok": true,
+      "ms": 0,
+      "summary": {
+        "count": 21,
+        "btcPool": "0x4181dd08e73bbcdd1ba3e615a18f6abd941b94c0",
+        "decimals": 8
+      }
+    },
+    {
+      "name": "cockpit",
+      "ok": true,
+      "ms": 953,
+      "summary": {
+        "count": 286,
+        "source": "dreamDEX Hideki perpetual fills · SDK indexer",
+        "gaps": 1,
+        "stale": false,
+        "rsi": 33.89773983618598,
+        "mark": 81323.27812309988,
+        "bookLevels": 40,
+        "timeframes": ["15m", "1h", "4h"]
+      }
+    },
+    {
+      "name": "scanner and actual bucket stats",
+      "ok": true,
+      "ms": 2825,
+      "summary": {
+        "rows": 21,
+        "volumeCoverage": 21,
+        "changeCoverage": 21
+      }
+    },
+    {
+      "name": "funding history",
+      "ok": true,
+      "ms": 359,
+      "summary": {
+        "count": 24,
+        "firstRate1h": 0.0002208613821668831,
+        "interval": 3600,
+        "window": 28800
+      }
+    },
+    {
+      "name": "empty public account including analytics",
+      "ok": true,
+      "ms": 1008,
+      "summary": {
+        "equity": "0",
+        "analytics": [],
+        "fundingPayments": 0,
+        "errors": []
+      }
+    },
+    {
+      "name": "public active-account reads",
+      "ok": true,
+      "ms": 1151,
+      "summary": {
+        "positions": 21,
+        "analytics": 21,
+        "priceable": 21,
+        "orders": 100,
+        "fills": 100,
+        "fundingPayments": 100,
+        "errors": []
+      }
+    },
+    {
+      "name": "diagnostics",
+      "ok": true,
+      "ms": 546,
+      "summary": [
+        {
+          "name": "RPC chain",
+          "ok": true
+        },
+        {
+          "name": "RPC head",
+          "ok": true
+        },
+        {
+          "name": "Perp discovery",
+          "ok": true
+        },
+        {
+          "name": "Indexer freshness",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "name": "unsigned simulation and gas guard for a public collateral account",
+      "ok": true,
+      "ms": 1962,
+      "summary": {
+        "simulationPassed": true,
+        "gasEstimationReached": true,
+        "previewReady": false,
+        "blocked": "Insufficient STT",
+        "signed": false,
+        "broadcast": false
+      }
+    },
+    {
+      "name": "strict invalid input rejection",
+      "ok": true,
+      "ms": 16,
+      "summary": {
+        "error": "marketId: Invalid input: expected string, received undefined; side: Invalid option: expected one of \"long\"|\"short\"; type: Invalid option: expected one of \"limit\"|\"market\"; entry: Invalid input: expected string, received undefined; stop: Invalid input: expected string, received undefined; target: Invalid input: expected string, received undefined; riskBudget: Invalid input: expected string, received undefined; collateral: Invalid input: expected string, received undefined; leverage: Invalid input: expected string, received undefined; slippageBps: Invalid input: expected string, received undefined; : Unrecognized key: \"unexpected\""
+      }
+    },
+    {
+      "name": "cross-origin API denial",
+      "ok": true,
+      "ms": 14,
+      "summary": {
+        "error": "Cross-origin API access is disabled."
+      }
+    },
+    {
+      "name": "unknown market rejection",
+      "ok": true,
+      "ms": 4,
+      "summary": {
+        "error": "Unknown Hideki perpetual pool. Refresh market discovery."
+      }
+    },
+    {
+      "name": "unfunded preview is blocked",
+      "ok": true,
+      "ms": 1274,
+      "summary": {
+        "error": "Order blocked by official account sizing: collateral"
+      }
+    }
+  ]
+}
