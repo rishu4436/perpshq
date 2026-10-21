@@ -30,20 +30,13 @@ export async function observeAgent(c: AgentConfig): Promise<AgentObservation> {
       });
     const permissions = c.operatorAddress ? await readPermissions(c, m) : null;
     const errors = [...a.errors];
-    if (!a.positions || !a.orders || !a.analytics || !a.margin)
+    if (!a.exposure.complete || !a.openOrders || !a.analytics || !a.margin)
       errors.push('Incomplete account/position/order/margin observation');
     const allMarkets = await markets();
     const positions = (a.analytics ?? []).flatMap((p) => {
-      const market = allMarkets.find((m) => m.id.toLowerCase() === p.pool.toLowerCase()),
-        source = (a.positions ?? []).find((v) => v.pool.toLowerCase() === p.pool.toLowerCase());
-      if (
-        !market ||
-        !source ||
-        !p.priceable ||
-        source.entryPriceX18 === null ||
-        p.notional == null ||
-        p.unrealizedPnl == null
-      ) {
+      if (p.size === 0n) return [];
+      const market = allMarkets.find((m) => m.poolAddress.toLowerCase() === p.pool.toLowerCase());
+      if (!market || !p.priceable || p.notional == null || p.unrealizedPnl == null) {
         errors.push('An account position cannot be priced reliably');
         return [];
       }
@@ -54,34 +47,32 @@ export async function observeAgent(c: AgentConfig): Promise<AgentObservation> {
           marketId: market.id,
           side: size.gt(0) ? ('long' as const) : ('short' as const),
           quantity: size.abs().toFixed(),
-          entryPrice: fromRaw(source.entryPriceX18, 18),
+          entryPrice: fromRaw(p.avgEntryPrice, market.quoteDecimals),
           notional: fromRaw(p.notional, market.quoteDecimals),
           unrealizedPnl: fromRaw(p.unrealizedPnl, market.quoteDecimals),
           source: 'chain' as const,
         },
       ];
     });
-    const orders = (a.orders ?? [])
-      .filter((o) => o.status === 'Open')
-      .flatMap((o) => {
-        const market = allMarkets.find((m) => m.id.toLowerCase() === o.pool.toLowerCase());
-        if (!market) {
-          errors.push('An open order has unknown market constraints');
-          return [];
-        }
-        const remaining = fromRaw(o.quantityRemaining, market.baseDecimals),
-          price = fromRaw(o.price, market.quoteDecimals);
-        return [
-          {
-            orderId: o.orderId,
-            marketId: market.id,
-            owner: c.ownerAddress!,
-            quantity: fromRaw(o.fullQuantity, market.baseDecimals),
-            remaining,
-            notional: new Decimal(remaining).mul(price).toFixed(),
-          },
-        ];
-      });
+    const orders = (a.openOrders ?? []).flatMap((o) => {
+      const market = allMarkets.find((m) => m.id.toLowerCase() === o.pool.toLowerCase());
+      if (!market) {
+        errors.push('An open order has unknown market constraints');
+        return [];
+      }
+      const remaining = fromRaw(o.quantityRemaining, market.baseDecimals),
+        price = fromRaw(o.price, market.quoteDecimals);
+      return [
+        {
+          orderId: o.orderId.toString(),
+          marketId: market.id,
+          owner: c.ownerAddress!,
+          quantity: fromRaw(o.fullQuantity, market.baseDecimals),
+          remaining,
+          notional: new Decimal(remaining).mul(price).toFixed(),
+        },
+      ];
+    });
     const total = positions
       .reduce((sum, p) => sum.plus(p.notional), new Decimal(0))
       .plus(orders.reduce((sum, o) => sum.plus(o.notional), new Decimal(0)));
@@ -123,6 +114,7 @@ export async function observeAgent(c: AgentConfig): Promise<AgentObservation> {
       sessionPnl: null,
       dailyPnl: null,
       historyComplete: false,
+      exposureComplete: a.exposure.complete,
       gasSTT: permissions?.gasSTT ?? null,
       permissions: permissions
         ? {

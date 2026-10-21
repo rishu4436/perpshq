@@ -724,8 +724,8 @@ export function AgentBuilder({
                 {field(
                   'execution',
                   'allowPositionReductions',
-                  'Allow unsigned position-reduction preparation',
-                  'Does not unlock signing; opposite IOC is not atomic reduce-only.',
+                  'Permit position-reduction recommendations',
+                  'Recommendations only. Delegated position exits remain unavailable; review owner actions separately.',
                   'boolean',
                 )}
                 {field(

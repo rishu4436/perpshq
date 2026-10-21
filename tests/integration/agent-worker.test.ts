@@ -158,6 +158,48 @@ describe('durable local control plane', () => {
   });
 });
 describe('worker fencing and outages', () => {
+  it('runs an idle cycle with no configured agents and reports a genuine heartbeat', async () => {
+    const s = new AgentStore(':memory:');
+    stores.push(s);
+    const observe = vi.fn();
+    const worker = new AgentWorker(s, observe, { clock: () => agentNow });
+    worker.start();
+    await worker.cycle();
+    expect(observe).not.toHaveBeenCalled();
+    expect(s.health()?.state).toBe('idle');
+    worker.shutdown();
+  });
+  it('evaluates multiple active agents without starting paused configurations', async () => {
+    const f = setup(),
+      other = { ...f.config, id: '22222222-2222-4222-8222-222222222222', name: 'Second dry run' },
+      paused = { ...f.config, id: '33333333-3333-4333-8333-333333333333', name: 'Configured only' };
+    f.s.save(other, undefined, agentNow);
+    f.s.save(paused, undefined, agentNow);
+    f.s.command(f.config.id, 'start', 1, agentNow);
+    f.s.command(other.id, 'start', 1, agentNow);
+    f.w.start();
+    await f.w.cycle();
+    expect(f.observe).toHaveBeenCalledTimes(2);
+    expect(f.s.decisions(other.id)).toHaveLength(1);
+    expect(f.s.decisions(paused.id)).toHaveLength(0);
+    f.w.shutdown();
+  });
+  it('rejects overlapping cycles in a single process', async () => {
+    const f = setup();
+    let release!: (o: typeof f.observation) => void;
+    const waiting = new Promise<typeof f.observation>((r) => {
+      release = r;
+    });
+    const worker = new AgentWorker(f.s, () => waiting, { clock: () => agentNow });
+    f.s.command(f.config.id, 'start', 1, agentNow);
+    worker.start();
+    const cycle = worker.cycle();
+    await expect(worker.cycle()).rejects.toThrow('already in flight');
+    release(f.observation);
+    await cycle;
+    expect(f.s.decisions(f.config.id)).toHaveLength(1);
+    worker.shutdown();
+  });
   it('rejects two processes even when configured with the same worker identity', () => {
     const f = setup();
     f.w.start();

@@ -31,6 +31,7 @@ import { fromRaw } from '../risk-engine';
 import { analyze } from '../opportunity-scoring';
 import Decimal from 'decimal.js';
 import { orderOutcome } from '../trade-planner/evidence';
+import { verifyExposure } from './exposure';
 
 export const sdk = new SomniaMarkets({
   chain: hidekiTestnet,
@@ -289,6 +290,25 @@ export async function account(address: Address) {
     sdk.client.listPerpPositionAnalytics({ marginBank: m.marginBank, account: address }),
     sdk.client.getFundingPayments(address, { limit: 100 }),
   ]);
+  // Historical rows remain bounded for display. Risk uses every resting order at the bank snapshot block.
+  const currentMargin = value(margin);
+  const openOrders = await Promise.resolve()
+    .then(() => {
+      if (!currentMargin) throw new Error('Margin snapshot unavailable');
+      return sdk.client.getOpenOrdersOnchain(
+        ms.map((v) => v.poolAddress),
+        address,
+        { blockNumber: currentMargin.asOfBlock },
+      );
+    })
+    .then(
+      (result) => ({ result, error: undefined }),
+      () => ({
+        result: null,
+        error: 'Authoritative open-order read unavailable; exposure is incomplete',
+      }),
+    );
+  const exposure = verifyExposure(address, ms, currentMargin, value(analytics), openOrders.result);
   return {
     address,
     fetchedAt: Date.now(),
@@ -303,32 +323,38 @@ export async function account(address: Address) {
         realizedPnl: p.lastUpdateRealizedPnl,
       })),
     analytics: value(analytics),
+    openOrders: openOrders.result?.orders ?? null,
+    exposure,
     fundingPayments: value(payments),
     orders: value(orders),
     fills: value(fills),
     changes: value(changes),
     gas: value(gas)?.toString(),
     voucher: value(voucher),
-    errors: [margin, positions, orders, fills, changes, gas, voucher, analytics, payments].flatMap(
-      (r, i) =>
-        r.status === 'rejected'
-          ? [
-              [
-                'Margin',
-                'Positions',
-                'Orders',
-                'Fills',
-                'Position changes',
-                'STT balance',
-                'Voucher',
-                'Position analytics',
-                'Funding payments',
-              ][i] +
-                ': ' +
-                message(r.reason),
-            ]
-          : [],
-    ),
+    errors: [
+      ...(openOrders.error ? [openOrders.error] : []),
+      ...exposure.reasons,
+      ...[margin, positions, orders, fills, changes, gas, voucher, analytics, payments].flatMap(
+        (r, i) =>
+          r.status === 'rejected'
+            ? [
+                [
+                  'Margin',
+                  'Positions',
+                  'Orders',
+                  'Fills',
+                  'Position changes',
+                  'STT balance',
+                  'Voucher',
+                  'Position analytics',
+                  'Funding payments',
+                ][i] +
+                  ': ' +
+                  message(r.reason),
+              ]
+            : [],
+      ),
+    ],
   };
 }
 export async function prepare(plan: Plan, account: Address, approvedData?: Hex) {

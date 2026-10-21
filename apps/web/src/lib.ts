@@ -79,6 +79,7 @@ export function journalEntry(m: Market, plan?: Plan, wallet?: string, hash?: str
   };
 }
 export interface AccountData {
+  exposure?: { complete: boolean; blockNumber: string | null; source: string; reasons: string[] };
   address: string;
   fetchedAt: number;
   quoteDecimals: number;

@@ -10,6 +10,7 @@ try {
     if (
       !h ||
       Date.now() - h.at > 30000 ||
+      h.at > Date.now() + 1000 ||
       h.state === 'stopped' ||
       h.network !== 50383 ||
       h.broadcastEnabled !== false

@@ -231,6 +231,10 @@ export async function prepareOperatorAction(
       );
     if (action.proposal.action !== 'entry' && !config.execution.allowPositionReductions)
       throw new Error('Position reductions require a separately enabled action policy');
+    if (action.proposal.action !== 'entry')
+      throw new Error(
+        'Operator position exit is unavailable: the verified delegated ABI has no atomic reduce-only position operation. Review the owner wallet in the official app.',
+      );
     const p = action.proposal,
       max = await sdk.client.getMaxPerpOrderSize({
         pool: m.poolAddress,

@@ -31,6 +31,7 @@ function launch(path: string, configFile: string, workerId: string, cycles: numb
       AGENT_MAX_CYCLES: String(cycles),
       AGENT_NETWORK: 'hideki',
       AGENT_MODE: 'DRY_RUN',
+      AGENT_LEASE_TTL_MS: '30000',
     },
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -160,6 +161,46 @@ async function main() {
         realTransactions: 0,
       };
     });
+    await check(
+      'forced termination preserves state and blocks takeover until lease expiry',
+      async () => {
+        const crashed = launch(path, configFile, 'verification-crash', 100);
+        try {
+          await waitFor(() => crashed.output().includes('cycle-complete'), 45000);
+          const previous = s.get(config.id),
+            health = s.health()!;
+          crashed.child.kill('SIGKILL');
+          const crashCode = await crashed.done;
+          const tooEarly = launch(path, configFile, 'verification-too-early', 1);
+          if ((await tooEarly.done) === 0) throw new Error('Unexpired crash lease was stolen');
+          await waitFor(
+            () =>
+              !s.owns({ workerId: health.workerId, fence: health.fence, expiresAt: 0 }, Date.now()),
+            35000,
+          );
+          const recovered = launch(path, configFile, 'verification-after-crash', 1);
+          if ((await recovered.done) !== 0) throw new Error('Crash recovery failed');
+          const next = s.get(config.id),
+            fills = next.ledger.fills;
+          if (
+            next.runtime.cursor < previous.runtime.cursor ||
+            new Set(fills.map((f) => f.id)).size !== fills.length ||
+            s.health()!.fence <= health.fence
+          )
+            throw new Error('Crash recovery invariants failed');
+          return {
+            crashExitCode: crashCode,
+            previousFence: health.fence,
+            recoveredFence: s.health()!.fence,
+            previousCursor: previous.runtime.cursor,
+            recoveredCursor: next.runtime.cursor,
+            realTransactions: 0,
+          };
+        } finally {
+          if (crashed.child.exitCode === null) crashed.child.kill('SIGKILL');
+        }
+      },
+    );
     await check('actual pool operator read ABI with synthetic public addresses', async () => {
       const snapshot = await readPermissions(
         { ...config, ownerAddress: '0x' + '1'.repeat(40), operatorAddress: '0x' + '2'.repeat(40) },

@@ -100,7 +100,7 @@ export function evaluateAgent(
         v.market.toLowerCase() !== config.marketId.toLowerCase() ||
         v.time + intervals[v.timeframe] > now / 1000,
     ) ||
-    c.some((v, i) => i > 0 && v.time <= c[i - 1].time)
+    c.some((v, i) => i > 0 && v.time - c[i - 1].time !== intervals[v.timeframe])
   )
     return unavailable('Candle order, completion timing or market identity is invalid.');
   if (last && last.time < r.cursor)
@@ -120,6 +120,14 @@ export function evaluateAgent(
     ).at(-1);
   decision.indicators.configuredFastEMA = fast ?? null;
   decision.indicators.configuredSlowEMA = slow ?? null;
+  if (
+    o.account?.source === 'chain' &&
+    (o.account.exposureComplete !== true || o.account.errors.length)
+  )
+    return unavailable(
+      'Authoritative account exposure is incomplete or unreconciled.',
+      'PAUSE_REQUIRED',
+    );
   if (
     config.strategy === 'risk-guardian' &&
     o.account?.source === 'chain' &&
@@ -300,8 +308,23 @@ export function evaluateAgent(
             !frame ||
             frame.quality.stale ||
             now - frame.quality.fetchedAt > maxAge ||
-            frame.candles.length < config.conditions.emaSlow ||
-            frame.candles.some((c) => !c.complete || c.time + intervals[tf] > now / 1000)
+            frame.quality.fetchedAt > now + 1000 ||
+            frame.market.id.toLowerCase() !== config.marketId.toLowerCase() ||
+            frame.candles.length < Math.max(50, config.conditions.emaSlow) ||
+            now / 1000 - ((frame.candles.at(-1)?.time ?? 0) + intervals[tf]) > 2 * intervals[tf] ||
+            frame.candles.some(
+              (c, i) =>
+                !c.complete ||
+                c.timeframe !== tf ||
+                c.market.toLowerCase() !== config.marketId.toLowerCase() ||
+                ![c.time, c.open, c.high, c.low, c.close].every(Number.isFinite) ||
+                c.time % intervals[tf] !== 0 ||
+                c.low <= 0 ||
+                c.high < Math.max(c.open, c.close) ||
+                c.low > Math.min(c.open, c.close) ||
+                c.time + intervals[tf] > now / 1000 ||
+                (i > 0 && c.time - frame.candles[i - 1].time !== intervals[tf]),
+            )
           )
             continue;
           const close = frame.candles.map((c) => c.close),

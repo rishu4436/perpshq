@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import Decimal from 'decimal.js';
 import { agentFixture, agentNow } from '../agent-fixtures';
 import { evaluateAgent } from '../../packages/agent-engine';
-import { advancePaper, markPaper, paperAccount } from '../../packages/agent-engine/paper';
+import {
+  advancePaper,
+  markPaper,
+  paperAccount,
+  applyPaperFill,
+} from '../../packages/agent-engine/paper';
 import { evaluateHistory } from '../../packages/agent-engine/history';
 import { assessRisk, sizeProposal } from '../../packages/agent-risk';
 function paperFixture() {
@@ -24,6 +29,97 @@ function paperFixture() {
   return { ...f, decision: d };
 }
 describe('auditable paper accounting', () => {
+  it.each(['market', 'negative-mark', 'nonfinite-mark', 'stale-fetch'] as const)(
+    'rejects %s before any resting paper fill',
+    (kind) => {
+      const f = paperFixture();
+      f.ledger.orders.push({
+        id: 'resting',
+        decisionId: f.decision.id,
+        createdAt: agentNow - 1000,
+        expiresAt: agentNow + 10000,
+        remaining: f.decision.proposal!.quantity,
+        proposal: f.decision.proposal!,
+      });
+      if (kind === 'market') f.detail.market.id = '0x' + '9'.repeat(40);
+      if (kind === 'negative-mark') f.detail.market.markPrice = -100;
+      if (kind === 'nonfinite-mark') f.detail.market.markPrice = Infinity;
+      if (kind === 'stale-fetch') f.detail.quality.fetchedAt = agentNow - 100000;
+      expect(() => advancePaper(f.config, f.ledger, f.detail, undefined, agentNow)).toThrow();
+      expect(f.ledger.fills).toHaveLength(0);
+    },
+  );
+  it('rechecks post-fee collateral instead of filling at an exhausted margin boundary', () => {
+    const f = paperFixture();
+    f.ledger.cash =
+      f.ledger.equity =
+      f.ledger.initialEquity =
+        new Decimal(f.decision.proposal!.quantity)
+          .mul('100.11001')
+          .div(f.config.risk.leverage)
+          .toFixed();
+    const result = advancePaper(f.config, f.ledger, f.detail, f.decision, agentNow);
+    expect(result.ledger.fills).toHaveLength(0);
+    expect(result.notes.join(' ')).toContain('limits');
+  });
+  it('does not fill an old resting order after exposure limits tighten', () => {
+    const f = paperFixture();
+    f.ledger.orders.push({
+      id: 'test-resting',
+      decisionId: f.decision.id,
+      createdAt: agentNow - 1000,
+      expiresAt: agentNow + 10000,
+      remaining: f.decision.proposal!.quantity,
+      proposal: f.decision.proposal!,
+    });
+    f.config.risk.maxMarketExposure = '1';
+    const result = advancePaper(f.config, f.ledger, f.detail, undefined, agentNow);
+    expect(result.ledger.fills).toHaveLength(0);
+    expect(result.ledger.orders).toHaveLength(1);
+  });
+  it('preserves unique partial-fill IDs beyond the bounded fill log', () => {
+    const f = paperFixture();
+    for (let i = 0; i < 1005; i++)
+      applyPaperFill(
+        f.config,
+        f.ledger,
+        f.decision.proposal!,
+        '0.0001',
+        '100',
+        'same-resting-decision',
+        agentNow + i,
+      );
+    expect(f.ledger.fills).toHaveLength(1000);
+    expect(new Set(f.ledger.fills.map((fill) => fill.id)).size).toBe(1000);
+  });
+  it('allocates funding and fees across partial exits without distorting final net outcome', () => {
+    const f = paperFixture();
+    let ledger = advancePaper(f.config, f.ledger, f.detail, f.decision, agentNow).ledger;
+    f.config.paper.fundingBpsPerHour = 10;
+    f.detail.market.markUpdatedAt = agentNow + 3600000;
+    ledger = markPaper(f.config, ledger, f.detail, agentNow + 3600000);
+    const half = new Decimal(ledger.position!.quantity).div(2).toFixed();
+    const close = {
+      ...f.decision.proposal!,
+      action: 'close-position' as const,
+      side: 'short' as const,
+    };
+    applyPaperFill(f.config, ledger, close, half, '102', 'partial-exit', agentNow + 3600000);
+    expect(ledger.closedTrades).toBe(0);
+    applyPaperFill(
+      f.config,
+      ledger,
+      close,
+      ledger.position!.quantity,
+      '103',
+      'final-exit',
+      agentNow + 3600001,
+    );
+    expect(ledger.closedTrades).toBe(1);
+    expect(
+      new Decimal(ledger.closedNetPnl).eq(new Decimal(ledger.cash).minus(ledger.initialEquity)),
+    ).toBe(true);
+  });
   it('uses observed depth with adverse costs and never creates a blockchain hash', () => {
     const f = paperFixture(),
       result = advancePaper(f.config, f.ledger, f.detail, f.decision, agentNow);

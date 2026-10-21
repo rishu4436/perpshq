@@ -808,6 +808,14 @@ export function Positions({
           <h3>Orders</h3>
           <small>Latest 100 indexed orders</small>
         </div>
+        <div className="disclaimer">
+          This history is bounded and may lag. Agent risk uses a separate authoritative open-order
+          and active-position snapshot.
+          {a?.exposure &&
+            (a.exposure.complete
+              ? ' Current risk snapshot complete at block ' + a.exposure.blockNumber + '.'
+              : ' Current exposure is incomplete; risk-increasing agent proposals are blocked.')}
+        </div>
         {a?.orders?.length ? (
           <div className="table-scroll">
             <table>

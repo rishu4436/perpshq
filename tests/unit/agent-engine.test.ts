@@ -53,6 +53,37 @@ describe('versioned no-code configuration', () => {
   });
 });
 describe('deterministic signal engine', () => {
+  it('rejects a gap even when a caller marks the source fresh', () => {
+    const f = agentFixture();
+    f.detail.candles.splice(-20, 1);
+    expect(evaluateAgent(f.config, f.observation, f.runtime, agentNow).type).toBe(
+      'DATA_UNAVAILABLE',
+    );
+  });
+  it.each(['market', 'interval', 'gap', 'old', 'future-fetch'] as const)(
+    'never counts a %s secondary frame toward agreement',
+    (kind) => {
+      const f = agentFixture();
+      f.config.timeframes = ['15m', '1h'];
+      f.config.conditions.minTimeframeAgreement = 2;
+      const frame = structuredClone(f.detail);
+      frame.candles = frame.candles.slice(-60).map((c, i) => ({
+        ...c,
+        timeframe: '1h' as const,
+        time: Math.floor(agentNow / 3600000) * 3600 - (60 - i) * 3600,
+      }));
+      f.observation.frames!['1h'] = frame;
+      if (kind === 'market') frame.market.id = '0x' + '9'.repeat(40);
+      if (kind === 'interval') frame.candles[0].timeframe = '15m';
+      if (kind === 'gap') frame.candles.splice(-5, 1);
+      if (kind === 'old') frame.candles.forEach((c) => (c.time -= 10 * 3600));
+      if (kind === 'future-fetch') frame.quality.fetchedAt = agentNow + 50000;
+      const d = evaluateAgent(f.config, f.observation, f.runtime, agentNow);
+      expect(d.type).toBe('NO_ACTION');
+      expect(d.failed).toContain('Multi-timeframe agreement');
+      expect(d.indicators.timeframeAgreement).toBeLessThan(2);
+    },
+  );
   it.each([
     ['support-resistance-breakout', 76],
     ['mean-reversion', 60],

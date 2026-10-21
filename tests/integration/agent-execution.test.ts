@@ -38,6 +38,7 @@ function context() {
   f.config.operatorAddress = operator;
   f.config.mode = 'ASSISTED';
   f.account.source = 'chain';
+  f.account.exposureComplete = true;
   f.account.gasSTT = '1';
   f.account.permissions = { place: true, cancel: true, reduce: true, checkedAt: agentNow };
   f.account.verifiedLeverage = 5;
@@ -170,6 +171,35 @@ afterEach(() => {
 });
 afterAll(async () => sdk.close());
 describe('verified linked-operator ABI, never broadcasts', () => {
+  it('a reduction policy cannot enable a non-atomic delegated position close', async () => {
+    const f = context();
+    f.config.execution.allowPositionReductions = true;
+    const p = { ...f.decision.proposal!, action: 'close-position' as const };
+    f.account.positions = [
+      {
+        marketId: f.config.marketId,
+        side: p.side === 'long' ? 'short' : 'long',
+        quantity: p.quantity,
+        entryPrice: String(f.detail.market.markPrice),
+        notional: p.notional,
+        unrealizedPnl: '0',
+        source: 'chain',
+      },
+    ];
+    await expect(
+      prepareOperatorAction(
+        f.config,
+        { kind: 'place', proposal: p },
+        {
+          market: f.detail.market,
+          decision: { ...f.decision, proposal: p },
+          observation: f.observation,
+          runtime: f.runtime,
+        },
+      ),
+    ).rejects.toThrow('no atomic reduce-only');
+    expect(rpc.call).not.toHaveBeenCalled();
+  });
   it('matches all published selectors and installed SDK parameter suffixes', () => {
     expect(verifiedSelectors()).toEqual([
       { name: 'placeOrderFor', selector: '0x80054449' },

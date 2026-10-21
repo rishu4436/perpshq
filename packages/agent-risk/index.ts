@@ -221,6 +221,11 @@ export function assessRisk(
     'Execution constraints cannot exceed the policy cap',
   );
   if (a) {
+    check(
+      'Exposure complete',
+      a.source === 'paper' || a.exposureComplete === true,
+      'Risk requires authoritative current orders and active bank positions, not a bounded history page',
+    );
     const paper = config.mode === 'DRY_RUN' && a.source === 'paper';
     check(
       'Account source',
@@ -335,6 +340,7 @@ export function assessRisk(
   }
   const failed = checks.filter((c) => !c.passed);
   const pauseNames = [
+    'Exposure complete',
     'Durable ownership',
     'Known submission outcome',
     'Indexer synchronized',

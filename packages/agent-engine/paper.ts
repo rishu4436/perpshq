@@ -123,6 +123,9 @@ export function markPaper(
     mark = d.market.markPrice;
   if (
     !mark ||
+    !Number.isFinite(mark) ||
+    mark <= 0 ||
+    d.market.id.toLowerCase() !== c.marketId.toLowerCase() ||
     d.market.error ||
     !d.market.markUpdatedAt ||
     now - d.market.markUpdatedAt > c.risk.maxDataAgeSeconds * 1000 ||
@@ -285,7 +288,7 @@ export function applyPaperFill(
   l.fees = new Decimal(l.fees).plus(fee).toFixed();
   l.lastFillAt = now;
   l.fills.push({
-    id: 'paper:' + id + ':' + l.fills.length,
+    id: 'paper:' + id + ':' + now + ':' + l.fills.length,
     decisionId: id,
     at: now,
     side: p.side,
@@ -305,9 +308,56 @@ export function advancePaper(
   decision: AgentDecision | undefined,
   now: number,
 ) {
-  if (d.quality.stale) throw new Error('Paper fills are withheld for stale history');
+  if (
+    d.quality.stale ||
+    now - d.quality.fetchedAt > c.risk.maxDataAgeSeconds * 1000 ||
+    d.quality.fetchedAt > now + 1000
+  )
+    throw new Error('Paper fills are withheld for stale history');
   let l = markPaper(c, input, d, now);
   const notes: string[] = [];
+  // Resting orders must be rechecked against current cash/exposure after every earlier fill.
+  const acceptFill = (
+    p: ProposedOrder,
+    quantity: string,
+    price: string,
+    id: string,
+    restingId?: string,
+  ) => {
+    const candidate = structuredClone(l);
+    applyPaperFill(c, candidate, p, quantity, price, id, now);
+    if (restingId)
+      candidate.orders = candidate.orders.flatMap((o) => {
+        if (o.id !== restingId) return [o];
+        const remaining = new Decimal(o.remaining).minus(quantity);
+        return remaining.gt(0) ? [{ ...o, remaining: remaining.toFixed() }] : [];
+      });
+    const marked = markPaper(c, candidate, d, now),
+      account = paperAccount(c, marked, now);
+    const newRemainder =
+      !restingId && p.orderType === 'LIMIT'
+        ? Decimal.max(0, new Decimal(p.quantity).minus(quantity))
+        : new Decimal(0);
+    const exposure = new Decimal(account.totalExposure).plus(newRemainder.mul(p.price));
+    if (
+      p.action === 'entry' &&
+      (exposure.gt(c.risk.maxTotalExposure) ||
+        exposure.gt(c.risk.maxMarketExposure) ||
+        account.positionCount > c.risk.maxOpenPositions ||
+        account.orders.length + (newRemainder.gt(0) ? 1 : 0) > c.risk.maxOpenOrders ||
+        new Decimal(account.equity).lt(exposure.div(c.risk.leverage)) ||
+        new Decimal(account.sessionPnl!).lte(new Decimal(c.risk.maxSessionLoss).neg()) ||
+        new Decimal(account.dailyPnl!).lte(new Decimal(c.risk.maxDailyLoss).neg()) ||
+        new Decimal(quantity).mul(price).gt(c.risk.maxOrderNotional))
+    ) {
+      notes.push(
+        'Paper entry fill withheld: current exposure, collateral or loss limits would be exceeded after costs.',
+      );
+      return false;
+    }
+    l = marked;
+    return true;
+  };
   const freshDepth = () => !!d.book && d.book.fetchedAt > (l.lastBookConsumedAt ?? 0);
   const nextOrders: PaperOrder[] = [];
   for (const order of l.orders) {
@@ -319,10 +369,11 @@ export function advancePaper(
       ? visibleFill(c, d, order.proposal, order.remaining, now)
       : { quantity: '0', price: '0', reason: 'This book observation was already consumed.' };
     if (new Decimal(fill.quantity).gt(0)) {
-      applyPaperFill(c, l, order.proposal, fill.quantity, fill.price, order.decisionId, now);
-      l.lastBookConsumedAt = d.book!.fetchedAt;
-      order.remaining = new Decimal(order.remaining).minus(fill.quantity).toFixed();
-      notes.push(fill.reason);
+      if (acceptFill(order.proposal, fill.quantity, fill.price, order.decisionId, order.id)) {
+        l.lastBookConsumedAt = d.book!.fetchedAt;
+        order.remaining = new Decimal(order.remaining).minus(fill.quantity).toFixed();
+        notes.push(fill.reason);
+      }
     }
     if (new Decimal(order.remaining).gt(0)) nextOrders.push(order);
   }
@@ -341,9 +392,13 @@ export function advancePaper(
         ? visibleFill(c, d, p, p.quantity, now)
         : { quantity: '0', price: '0', reason: 'This book observation was already consumed.' };
       notes.push(fill.reason);
-      if (new Decimal(fill.quantity).gt(0)) {
-        applyPaperFill(c, l, p, fill.quantity, fill.price, decision.id, now);
+      if (
+        new Decimal(fill.quantity).gt(0) &&
+        acceptFill(p, fill.quantity, fill.price, decision.id)
+      ) {
         l.lastBookConsumedAt = d.book!.fetchedAt;
+      } else if (new Decimal(fill.quantity).gt(0)) {
+        fill.quantity = '0';
       }
       const remaining = new Decimal(p.quantity).minus(fill.quantity);
       if (p.orderType === 'LIMIT' && remaining.gt(0))

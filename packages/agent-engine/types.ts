@@ -54,6 +54,7 @@ export interface AgentAccount {
   sessionPnl: string | null;
   dailyPnl: string | null;
   historyComplete: boolean;
+  exposureComplete?: boolean;
   gasSTT: string | null;
   permissions: { place: boolean; cancel: boolean; reduce: boolean; checkedAt: number } | null;
   errors: string[];

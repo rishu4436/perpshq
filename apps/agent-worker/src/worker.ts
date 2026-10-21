@@ -61,6 +61,7 @@ export class AgentWorker {
     }, 5000);
   }
   async cycle() {
+    if (this.evaluating) throw new Error('An agent observation is already in flight');
     if (this.stopped || !this.lease || !this.store.owns(this.lease, this.now()))
       throw new Error('Worker stopped or lease unavailable');
     this.store.acknowledge(this.lease, this.now());
