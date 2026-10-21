@@ -38,8 +38,12 @@ Root build context is required. Start command: `node --import tsx apps/agent-wor
 
 ## Future owner-approved Railway procedure
 
-After separate deployment approval, select the private repo and explicitly choose `apps/agent-worker/railway.toml`. Keep root context, **one replica** and persistent `/data`; verify ownership. Upload only nonsecret config and use actual env names above. No domain/HTTP ingress is needed. ON_FAILURE retries ten times; exhaustion needs attention and does not guarantee uptime.
+After separate deployment approval, select the existing repository and explicitly choose `apps/agent-worker/railway.toml`. Keep root context, **one replica** and persistent `/data`; verify ownership. Upload only nonsecret config and use actual env names above. No domain/HTTP ingress is needed. ON_FAILURE retries ten times; exhaustion needs attention and does not guarantee uptime.
 
 Do not configure an HTTP healthcheck path: there is no listener. Railway process/log monitoring and the heartbeat CLI are distinct from Docker HEALTHCHECK; do not assume Railway consumes its status. Inspect `worker-started`, `cycle-complete`, `cycle-unavailable`, `worker-stopped`. Run `npm run agent:health` with the service's volume to check heartbeat.
 
 A local browser cannot pause/edit cloud SQLite. **No authenticated cloud control exists.** Deployment tab reports integration unavailable. Use owner-controlled service operations and verify actual stop; inspect exposure separately. Do not expose the loopback API or bypass Host/Origin checks. Remote mutation needs a new authenticated, audited control plane first.
+
+## Integration recheck, 21 October 2026
+
+Docker version/build were attempted again: the Linux engine named pipe remained unavailable, so no image build, container startup/health, /data permissions, SIGTERM or container recovery is verified. Railway's current config-as-code reference was reread for Dockerfile/start/restart fields; root context, one replica, persistent /data and no public listener remain required. Native worker forced-crash/lease recovery passed, but is not a substitute for container or cloud verification. No deployment/paid resources were created.

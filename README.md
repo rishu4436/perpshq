@@ -113,7 +113,7 @@ After submission, use the actual receipt, decoded events and indexed order state
 
 ## Persistence and security
 
-The API has no signer or broadcast endpoint. Personal records live in browser localStorage; public snapshots and verified receipts use SQLite in ignored `data/`. This is single-device persistence. Export important records. No cloud synchronization or authenticated multi-user write API is provided.
+The API has no signer or broadcast endpoint. Public source is available; public hosting remains unapproved. Personal records live in browser localStorage; public snapshots and verified receipts use SQLite in ignored `data/`. This is single-device persistence. Export important records. No cloud synchronization or authenticated multi-user write API is provided.
 
 Read [SECURITY](docs/SECURITY.md) before extending deployment or signing. The server binds to loopback, validates schemas/Host/Origin, rate limits requests, simulates orders and serves a restrictive production CSP. No mainnet feature exists.
 
@@ -123,8 +123,12 @@ The readiness branch hardens reviewed transaction parameters, wallet timeout/rel
 
 See the [audit and exact verification results](docs/READINESS-AUDIT.md), [first authorized transaction checklist](docs/TESTNET-TRANSACTION-CHECKLIST.md), [genuine evidence folder](docs/testnet-execution/README.md), and [reviewer access preparation](docs/REVIEWER-ACCESS.md). No genuine signed order or cancellation has been executed. No public deployment or visibility change has been made.
 
+## Integrated release review
+
+The consolidated `release/perpshq-final-integration` branch preserves current main plus both readiness/Agent Studio PRs. No PR has been merged into main. Read [FINAL-RELEASE-AUDIT.md](docs/FINAL-RELEASE-AUDIT.md) for current results, [position exit safety](docs/POSITION-EXIT-SAFETY.md) and the [remote-control design](docs/REMOTE-AGENT-CONTROL-ARCHITECTURE.md). Actual order history is bounded for display; agent risk requires complete authoritative current exposure and fails closed for missing or inconsistent snapshots.
+
 ## Demo and submission
 
 Follow the [demo script](docs/DEMO.md). Review [architecture](docs/ARCHITECTURE.md), [SDK integration](docs/SDK-INTEGRATION.md), [research](docs/RESEARCH-AND-FEASIBILITY.md) and [submission preparation](docs/SUBMISSION.md).
 
-Still required for the bounty: a real approved/funded testnet order and its evidence, approval for any public source release, demo recording, actual approved X posts, verified current event requirements and the user’s whitelisted DoraHacks submission. The deadline in the supplied brief is **1 November 2026 at 23:59 UTC**; web access did not independently confirm it.
+Still required for the bounty: a real approved/funded testnet order and its evidence, demo recording, actual approved X posts, verified current event requirements and the user’s whitelisted DoraHacks submission. The deadline in the supplied brief is **1 November 2026 at 23:59 UTC**; web access did not independently confirm it.

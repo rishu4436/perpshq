@@ -33,3 +33,21 @@ Native position closing, native stop placement, managed-wallet integration, full
 - [ ] Complete the user-owned wallet/funding and exact authorization steps in [TESTNET-TRANSACTION-CHECKLIST.md](TESTNET-TRANSACTION-CHECKLIST.md).
 - [ ] Record a genuine transaction, actual order/position result and any separately authorized cancellation. Preserve the distinction between confirmation and fill.
 - [ ] Record the final video, add approved public links and verify current organizer requirements. No recording or posting has been performed.
+
+## Integrated Agent Studio demonstration (additional 2 minutes)
+
+Prepare an isolated local database with a normal DRY_RUN config and a separate `npm run agent:worker` process sharing AGENT_STORE_PATH. Keep a real observation history; do not seed fabricated returns/fills. Saving alone is configured, not running.
+
+1. Open Agent Studio, create or inspect a market/strategy, edit signals/costs/hard limits, validate and save a version. State the selected mode and absence of a signer.
+2. Request dry run and show actual worker acknowledgement/heartbeat. Close the browser briefly and confirm the independent worker continues recording observations.
+3. Open Decisions: show a real matched/rejected rule, source/candle time and central risk explanation. NO_ACTION or DATA_UNAVAILABLE is a valid truthful demo outcome. If no fill occurs, say so; never force favorable candles or relax limits to manufacture one.
+4. Open Simulation: show actual paper records/cost assumptions or the empty state. Historical results use real available candles and chronological partitions, not predictive accuracy.
+5. Show actual public-address grant reads/unsigned entry preflight capability. False/no grants and incomplete account history are blockers, not authorization. Operator position exits are unavailable because ordinary delegated IOC lacks verified atomic reduce-only protection.
+6. Request pause; show pending then worker acknowledgement. Restart the worker on the same DB; show persisted config/ledger/cursor and paused state. Explain emergency latch, unknown-intent lock and that stop does not flatten chain exposure.
+7. Open Deployment: nonsecret export, no authenticated cloud connection, Docker/Railway preparation only. No cloud uptime claim. Explain the separately authorized canary and merge/deployment gates.
+
+## Video and screenshot plan
+
+Record the actual integrated branch at 1440px desktop, readable 1080p export; optional mobile segment at 390px. First show website → Scanner → Cockpit → user-clicked Planner context → exact preview. Pause the recording before a wallet request unless the user has explicitly authorized that exact funded testnet action. If unapproved/unfunded, show the real blocker and the prepared checklist; do not insert mock footage as genuine evidence. With authorization, record actual hash/receipt and distinguish partial/resting/fill, then journal original context.
+
+Use a separate labelled Agent Studio segment to show real read-only observations and genuine worker acknowledgements. Narration must distinguish code/tests, simulations and on-chain proof. Hide wallet secrets and account login/session material; public addresses/transactions may be shown only as intended evidence. Final video file, hosted link and public deployment are not yet created. Keep X posting and DoraHacks submission for explicit owner review/approval.

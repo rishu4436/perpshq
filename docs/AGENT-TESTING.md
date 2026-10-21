@@ -9,13 +9,13 @@ Verification uses real read-only sources, isolated paper stores and explicit tes
 | `npm ci`                               | Passed; 295 packages installed, 296 audited, zero known vulnerabilities at verification. No new dependency added. |
 | `npm run lint`                         | Passed.                                                                                                           |
 | `npm run typecheck`                    | Passed.                                                                                                           |
-| `npm test`                             | 206 passed, five optional live tests skipped; 12 files passed.                                                    |
-| `LIVE_TESTS=1 npm test`                | 211 passed, zero failed/skipped; includes five actual read-only SDK tests.                                        |
+| `npm test`                             | 241 passed, five optional live tests skipped; 13 files passed.                                                    |
+| `LIVE_TESTS=1 npm test`                | 246 passed, zero failed/skipped; includes five actual read-only SDK tests.                                        |
 | `npm run build`                        | Passed TypeScript and production Vite build. Dependency PURE-comment warnings are nonfatal.                       |
 | Dedicated Agent Studio browser run     | 12/12 passed across desktop/mobile.                                                                               |
 | Actual Agent Studio visual capture     | 2/2 passed; persisted local state, no mocks in these captures.                                                    |
 | Full production browser suite          | 57 passed, zero failed; one mobile wheel/zoom case intentionally skipped (58 total). Desktop zoom is covered.     |
-| Actual independent worker verification | 7/7 passed; [timestamped JSON](agent-worker-verification.json).                                                   |
+| Actual independent worker verification | 8/8 passed; [timestamped JSON](agent-worker-verification.json).                                                   |
 | Actual local Agent API verification    | 16/16 passed; [timestamped JSON](agent-http-verification.json).                                                   |
 | Docker local build/start               | Blocked before build: Docker Desktop Linux daemon pipe unavailable. Container behavior remains unverified.        |
 
@@ -23,7 +23,7 @@ The initial full browser attempt spanned an overnight machine suspension and was
 
 ## Coverage
 
-Agent-specific unit/integration tests: **110** (48 signal/config/risk, 14 paper/history, 29 unsigned execution/reconciliation, 19 worker/store). Existing **101** tests remain (96 default plus five optional live). Existing mocked manual-wallet execution paths are preserved.
+Agent-specific unit/integration tests: **145** (54 signal/config/risk, 22 paper/history, 30 unsigned execution/reconciliation, 22 worker/store, 17 exposure completeness). Existing **101** tests remain (96 default plus five optional live). Existing mocked manual-wallet execution paths are preserved.
 
 - Configuration/strategy: invalid schemas, key fields, contradictory limits, EMA/RSI/timeframes, warm-up/completion/staleness, market/chain, MTF/coverage, deterministic candidates, duplicate signals, prior-prefix breakout, mean-reversion recovery and Guardian reductions.
 - Risk: forged claimed sizing, exact 24-decimal lots, exposure/count/margin/leverage/loss/rate/failure/cooldown/gas/permission/health checks and unknown/incomplete account state.
@@ -49,6 +49,10 @@ Windows uses installed Edge; Linux CI installs Chromium. Browser wallet tests al
 
 For actual agent API/visual checks, start a server with **isolated** `AGENT_STORE_PATH='data/agent-studio-qa.sqlite'`, configure a dry-run agent, run a separate worker against that same path, and set PERPSHQ_TEST_URL to the server. `scripts/verify-agent-http.ts` intentionally saves a labelled QA configuration and queues only local commands; never target a live operational store. It verifies discovered constraints, actual false grants for synthetic public addresses, actual-candle reports, exports, version/replay/origin guards and absence of chain evidence. Browser capture requires a configured agent; an empty workspace is not a test failure in normal use.
 
-`node node_modules/tsx/dist/cli.mjs scripts/verify-agent-worker.ts` creates its own ignored temporary database and actual bounded child workers. It verifies startup/heartbeat, duplicate rejection, health exit code, real pause/resume acknowledgement, clean exit, restart/ledger/cursor/unique fills and pool permission read ABI with synthetic addresses. **False grants do not establish an authorized wallet.** Its one paper fill is simulated; real transaction count stays zero.
+`node node_modules/tsx/dist/cli.mjs scripts/verify-agent-worker.ts` creates its own ignored temporary database and actual bounded child workers. It verifies startup/heartbeat, duplicate rejection, health exit code, real pause/resume acknowledgement, clean exit, restart/ledger/cursor/unique fills, forced termination/lease-expiry fencing and pool permission read ABI with synthetic addresses. **False grants do not establish an authorized wallet.** The latest run recorded zero simulated fills (no complete entry condition occurred) and zero actual transactions; no fill is invented to make a demo.
 
 Screenshots: [desktop](screenshots/agent-studio-desktop.png), [mobile](screenshots/agent-studio-mobile.png). Observations are dated, not a claim that a worker remains online. No container startup, cloud uptime, funded linked-owner execution, atomic reduce-only or genuine authored testnet trade has been verified.
+
+## Final integration additions
+
+See [final audit](FINAL-RELEASE-AUDIT.md). New regressions prove 125 authoritative orders remain visible despite 100 history rows, active-pool/block/owner completeness failures cannot authorize risk, malformed secondary frames do not count, paper costs/limits are rechecked, retained partial-fill IDs remain unique, funding/partial-exit net accounting stays exact, overlapping worker cycles are rejected and non-atomic operator exits cannot prepare. Formatting uses platform-native line endings (`endOfLine:auto`) rather than rewriting all unrelated files after Windows checkout. CI now explicitly runs format and typecheck as well as existing checks.

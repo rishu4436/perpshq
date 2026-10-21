@@ -30,3 +30,7 @@ Status: **not executed**. This checklist grants no transaction permission. Autom
 ## Completion evidence
 
 Mark execution verified only after the actual authorized transaction, receipt, order state and any fill/cancellation have been inspected. No signed positive order, cancellation, or external-wallet compatibility session has yet been demonstrated by this audit.
+
+## Exact missing inputs for this release
+
+No user-owned funded account or exact order authorization has been supplied. Before any real action provide/select the public signing account in the external wallet, actual eligible market/pool and MarginBank, verified STT and USDso eligibility, and an exact side/type/raw quantity/price bound/expiry/gas review. The user must approve that displayed transaction at action time. If funding/grants/cancel are needed, each is separate approval. Do not transmit keys. Capture the actual exported receipt/events/order/position evidence under testnet-execution; successful inclusion alone is not fill proof. Refer to [position exit safety](POSITION-EXIT-SAFETY.md) before reducing or protecting a position.

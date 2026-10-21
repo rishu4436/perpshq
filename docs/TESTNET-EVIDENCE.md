@@ -29,3 +29,7 @@ The [exact transaction checklist](TESTNET-TRANSACTION-CHECKLIST.md) covers walle
 7. Export evidence JSON. Save it under a named evidence folder after review and attach the hash to its journal entry. If resting, cancellation requires a separate confirmation/signature.
 
 Replace this status only after a real hash and receipt have been captured. Never substitute a mocked provider hash or someone else’s public fill.
+
+## Final integration evidence, 21 October 2026
+
+No genuine authored order/cancellation was added. Unit/browser providers are mocks; worker fills are SIMULATED and the latest native run produced zero fills. Actual live read-only SDK/API probes and unsigned public-account simulation do not confer signing authority. Public active account reads can contain cross-block or ancillary RPC failures; these now explicitly block complete exposure rather than asserting zero. Current JSON probes are timestamped, not always-current prices or trade proof. [Final audit](FINAL-RELEASE-AUDIT.md) records current results and [exit safety](POSITION-EXIT-SAFETY.md) distinguishes native owner stops from unsupported delegated closes.

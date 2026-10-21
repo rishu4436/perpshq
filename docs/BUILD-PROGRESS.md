@@ -68,3 +68,9 @@ Actual keyless Hideki startup, heartbeat, duplicate protection, pause/resume ack
 Docker/Railway files are prepared; container startup is unverified because Docker Desktop's Linux engine is unavailable. No deployment, domain, funding, grant or trade occurred. Native local verification is not 24/7 cloud uptime. This feature depends on still-open readiness fixes; neither PR is automatically merged.
 
 On 21 October 2026 GitHub reported the existing repository PUBLIC. The owner explicitly instructed “Keep public and push”; Agent Studio publication follows that authorization. No visibility setting was changed by this implementation.
+
+## Final integration sprint, 21 October 2026
+
+Current default main advanced to a294315 with owner roadmap/README edits. PR #1 d8f0e95 and stacked PR #2 41ef968 remain open/green. The consolidated release branch starts from current main and merges both without code conflicts; the roadmap conflict preserves manual-MVP priority and accurately marks implemented dry run. README's removed X Posts section stays removed.
+
+Release fixes cover complete on-chain order/active-position exposure, snapshot consistency, secondary-frame/gap integrity, current paper-fill costs/limits, retained fill IDs, explicit rejection of non-atomic delegated exits and overlapping worker cycles. 246 unit/integration checks passed including five read-only live cases; default skips those five and passes 241. Eight actual native worker checks include forced termination, blocked premature takeover and fenced recovery. Real signed execution remains absent. See [final audit](FINAL-RELEASE-AUDIT.md) for final browser/API/CI counts and exact remaining approvals.
