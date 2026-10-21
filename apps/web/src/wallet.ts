@@ -1,26 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { NETWORK } from '../../../packages/shared-types';
 import { errorMessage, type Preview, type Evidence } from './lib';
-interface Submission {
-  account: string;
-  to: string;
-  data: string;
-  createdAt: number;
-  hash?: string;
-}
-const submissionKey = 'perpshq.unresolvedSubmission';
-function savedSubmission(): Submission | undefined {
-  try {
-    return JSON.parse(localStorage.getItem(submissionKey) ?? 'null') ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-interface Provider {
-  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-  on?: (name: string, handler: (v: unknown) => void) => void;
-  removeListener?: (name: string, handler: (v: unknown) => void) => void;
-}
+import {
+  readSubmission,
+  submissionKey,
+  requestTransaction,
+  evidenceMatches,
+  type Submission,
+  type Provider,
+} from './transaction';
+import { SubmissionFailure } from '../../../packages/trade-planner/approval';
 declare global {
   interface Window {
     ethereum?: Provider;
@@ -30,14 +19,27 @@ export function useWallet() {
   const [address, setAddress] = useState<string>(),
     [chain, setChain] = useState<number>(),
     [error, setError] = useState<string>(),
-    [submission, setSubmission] = useState<Submission | undefined>(savedSubmission);
+    [submission, setSubmission] = useState<Submission | undefined>(() =>
+      readSubmission(localStorage),
+    );
+  const revision = useRef(0),
+    inFlight = useRef(false);
+  useEffect(() => {
+    const changed = () => setSubmission(readSubmission(localStorage));
+    window.addEventListener('storage', changed);
+    return () => window.removeEventListener('storage', changed);
+  }, []);
   useEffect(() => {
     const p = window.ethereum;
     if (!p) return;
     const accounts = (a: unknown) => {
+      revision.current++;
       setAddress((a as string[])[0]);
     };
-    const network = (a: unknown) => setChain(Number(a));
+    const network = (a: unknown) => {
+      revision.current++;
+      setChain(Number(a));
+    };
     void p
       .request({ method: 'eth_accounts' })
       .then(accounts)
@@ -96,66 +98,32 @@ export function useWallet() {
     }
   }
   async function send(preview: Preview) {
+    if (inFlight.current)
+      throw new SubmissionFailure('A wallet request is already in progress.', 'blocked');
     const p = window.ethereum;
-    if (!p) throw new Error('Browser wallet is unavailable');
-    const a = (await p.request({ method: 'eth_accounts' })) as string[];
-    const c = Number(await p.request({ method: 'eth_chainId' }));
-    if (c !== NETWORK.id || preview.chainId !== NETWORK.id)
-      throw new Error('Wrong network. Switch to Hideki 50383.');
-    if (a[0]?.toLowerCase() !== preview.account.toLowerCase())
-      throw new Error('Wallet changed. Review a new preview.');
-    if (Date.now() > preview.expiresAt)
-      throw new Error('Preview expired. Refresh order validation.');
-    if (savedSubmission()?.account.toLowerCase() === preview.account.toLowerCase())
-      throw new Error(
-        'A previous wallet request is unresolved. Reconcile its transaction before submitting again.',
-      );
-    const intent: Submission = {
-      account: preview.account,
-      to: preview.to,
-      data: preview.data,
-      createdAt: Date.now(),
-    };
-    localStorage.setItem(submissionKey, JSON.stringify(intent));
-    setSubmission(intent);
+    if (!p) throw new SubmissionFailure('Browser wallet is unavailable', 'blocked');
+    inFlight.current = true;
+    const run = () =>
+      requestTransaction(preview, p, localStorage, setSubmission, () => revision.current);
     try {
-      const hash = (await p.request({
-        method: 'eth_sendTransaction',
-        params: [
-          {
-            from: preview.account,
-            to: preview.to,
-            data: preview.data,
-            value: '0x0',
-            gas: '0x' + BigInt(preview.gas).toString(16),
-            chainId: '0x' + NETWORK.id.toString(16),
+      if (navigator.locks)
+        return await navigator.locks.request(
+          'perpshq-wallet-submission',
+          { ifAvailable: true },
+          (lock) => {
+            if (!lock)
+              throw new SubmissionFailure('Another tab has an active wallet request.', 'blocked');
+            return run();
           },
-        ],
-      })) as string;
-      if (!/^0x[0-9a-fA-F]{64}$/.test(hash))
-        throw new Error(
-          'Wallet returned no valid hash; outcome is unknown. Reconcile with your wallet.',
         );
-      const record = { ...intent, hash };
-      localStorage.setItem(submissionKey, JSON.stringify(record));
-      setSubmission(record);
-      return hash;
-    } catch (e) {
-      if ((e as { code?: number }).code === 4001) {
-        localStorage.removeItem(submissionKey);
-        setSubmission(undefined);
-      }
-      throw e;
+      return await run();
+    } finally {
+      inFlight.current = false;
     }
   }
   function reconcile(e: Evidence) {
-    const r = savedSubmission();
-    if (
-      r &&
-      e.account.toLowerCase() === r.account.toLowerCase() &&
-      e.pool.toLowerCase() === r.to.toLowerCase() &&
-      (r.hash === e.hash || (!r.hash && r.data === e.input))
-    ) {
+    const r = readSubmission(localStorage);
+    if (r && evidenceMatches(r, e)) {
       localStorage.removeItem(submissionKey);
       setSubmission(undefined);
     }
@@ -169,7 +137,7 @@ export function useWallet() {
     send,
     reconcile,
     submission,
-    blocked: !!submission && submission.account.toLowerCase() === address?.toLowerCase(),
+    blocked: !!submission,
     correct: chain === NETWORK.id,
   };
 }

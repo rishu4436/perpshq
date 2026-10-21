@@ -109,6 +109,12 @@ The API has no signer or broadcast endpoint. Personal records live in browser lo
 
 Read [SECURITY](docs/SECURITY.md) before extending deployment or signing. The server binds to loopback, validates schemas/Host/Origin, rate limits requests, simulates orders and serves a restrictive production CSP. No mainnet feature exists.
 
+## Readiness audit
+
+The readiness branch hardens reviewed transaction parameters, wallet timeout/reload recovery and cancellation; suppresses stale directional scenarios; monitors each configured market/account alert independently; adds explicit side-aware planning references and preserved journal context; and keeps chart zoom across refresh/overlay changes. Browser alerts require the app to remain open and are not guaranteed background notifications.
+
+See the [audit and exact verification results](docs/READINESS-AUDIT.md), [first authorized transaction checklist](docs/TESTNET-TRANSACTION-CHECKLIST.md), [genuine evidence folder](docs/testnet-execution/README.md), and [reviewer access preparation](docs/REVIEWER-ACCESS.md). No genuine signed order or cancellation has been executed. No public deployment or visibility change has been made.
+
 ## Demo and submission
 
 Follow the [demo script](docs/DEMO.md). Review [architecture](docs/ARCHITECTURE.md), [SDK integration](docs/SDK-INTEGRATION.md), [research](docs/RESEARCH-AND-FEASIBILITY.md) and [submission preparation](docs/SUBMISSION.md).

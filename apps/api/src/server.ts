@@ -143,10 +143,22 @@ route('post', '/api/plan', async (req) => {
   return planTrade(p, await marketById(p.marketId));
 });
 route('post', '/api/preview', async (req) => {
-  const body = z.object({ input, account: addr }).strict().parse(req.body);
+  const body = z
+    .object({
+      input,
+      account: addr,
+      approvedData: z
+        .string()
+        .max(4096)
+        .regex(/^0x(?:[0-9a-fA-F]{2})+$/)
+        .optional(),
+    })
+    .strict()
+    .parse(req.body);
   return prepare(
     planTrade(body.input, await marketById(body.input.marketId)),
     body.account as `0x${string}`,
+    body.approvedData as `0x${string}` | undefined,
   );
 });
 route('post', '/api/cancel-preview', async (req) => {
