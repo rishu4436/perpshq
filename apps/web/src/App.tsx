@@ -16,7 +16,7 @@ import {
   SettingsPanel,
   WeightSettings,
 } from './components/personal';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
@@ -46,6 +46,7 @@ import {
   Wallet,
   X,
   ChartNoAxesCombined,
+  Bot,
 } from 'lucide-react';
 import {
   intervals,
@@ -76,6 +77,7 @@ import {
 import { useWallet } from './wallet';
 import { Chart } from './Chart';
 import { useAlertMonitoring } from './useAlertMonitoring';
+const AgentStudio = lazy(() => import('./components/agent-studio'));
 import { PerspectiveMark } from './components/identity';
 
 const navigation: [Page, typeof Activity][] = [
@@ -86,6 +88,7 @@ const navigation: [Page, typeof Activity][] = [
   ['Positions & Risk', Shield],
   ['Portfolio Analytics', Activity],
   ['Trade Journal', BookOpen],
+  ['Agent Studio', Bot],
   ['Arena Companion', Trophy],
   ['Settings & Help', Settings],
 ];
@@ -686,10 +689,10 @@ function App() {
         </a>
         <div className="brand-caption">PERPETUALS, IN PERSPECTIVE</div>
         <div className="workspace-label">
-          YOUR WORKSPACE <span>01 — 09</span>
+          YOUR WORKSPACE <span>01 — 10</span>
         </div>
         <nav aria-label="Main workspace">
-          {navigation.slice(0, 7).map(([p, Icon], index) => (
+          {navigation.slice(0, 8).map(([p, Icon], index) => (
             <button
               key={p}
               onClick={() => go(p)}
@@ -816,6 +819,8 @@ function App() {
                       'Portfolio Analytics': 'Review outcomes with a transparent view of the data.',
                       'Trade Journal':
                         'Good decisions deserve a record. Build a repeatable process.',
+                      'Agent Studio':
+                        'Configure strategies. Observe decisions. Keep execution under your control.',
                       'Arena Companion': 'Prepare for the Arena. Keep your evidence in one place.',
                       'Settings & Help':
                         'Your workspace, data sources, and connection diagnostics.',
@@ -1266,6 +1271,11 @@ function App() {
               plans={savedPlans}
               go={go}
             />
+          )}
+          {page === 'Agent Studio' && (
+            <Suspense fallback={<Skeleton />}>
+              <AgentStudio markets={ms} />
+            </Suspense>
           )}
           {page === 'Arena Companion' && (
             <Arena

@@ -1,4 +1,5 @@
 import express from 'express';
+import { createAgentRouter } from './agents';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
@@ -74,6 +75,8 @@ app.use('/api', (req, res, next) => {
   next();
 });
 app.use(express.json({ limit: '32kb' }));
+const agentRoutes = createAgentRouter();
+app.use('/api/agents', agentRoutes.router);
 const addr = z.string().regex(/^0x[0-9a-fA-F]{40}$/),
   hash = z.string().regex(/^0x[0-9a-fA-F]{64}$/),
   tf = z.enum(['1m', '5m', '15m', '1h', '4h', '1d']);
@@ -221,6 +224,7 @@ async function shutdown() {
   server.close();
   await sdk.close();
   db.close();
+  agentRoutes.close();
   process.exit(0);
 }
 process.on('SIGINT', shutdown);
