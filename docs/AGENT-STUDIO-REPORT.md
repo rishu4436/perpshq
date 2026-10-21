@@ -54,6 +54,6 @@ No genuine authored trade, live signer, cloud deployment or uptime proof. Incomp
 
 Branch: `feature/perpshq-agent-studio`, based on readiness commit `d8f0e95`. Meaningful strategy/risk, worker/store, delegated preflight and UI/API commits isolate the implementation. Review targets `fix/perpshq-hackathon-readiness` because [PR #1](https://github.com/rishu4436/perpshq/pull/1) is still open; merge readiness first, then retarget/review this feature normally. No automatic merge.
 
-Repository visibility was observed PUBLIC on 21 October 2026. The owner explicitly authorized keeping it public and pushing this feature. Final feature PR link and CI result will be recorded after publication.
+Repository visibility was observed PUBLIC on 21 October 2026. The owner explicitly authorized keeping it public and pushing this feature. Published feature review: [PR #2](https://github.com/rishu4436/perpshq/pull/2), targeting `fix/perpshq-hackathon-readiness`. GitHub Actions checks are attached to the PR; inspect the latest head checks before merge. The working branch is pushed and no merge/deployment was performed.
 
 No real trade, transfer, funding, permission grant, public deployment or visibility change was performed during implementation.
