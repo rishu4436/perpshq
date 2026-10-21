@@ -21,8 +21,18 @@ This is not a production multi-user custody or authentication system. Read-only 
 
 The browser uses a Web Lock for same-origin tab coordination when supported, plus persisted intent and a per-instance request lock. Cross-tab races without Web Locks, cross-device races and wallet-side replacements are not protocol-level idempotency guarantees. If a wallet response becomes uncertain, check wallet activity and the explorer instead of clearing storage and retrying. A lock without a known transaction may need manual investigation; the application never silently assumes rejection.
 
-Native stops/reductions and linked bot permissions remain unsupported, so the UI does not describe planned stops as armed. No live signed execution, native cancellation or populated-account browser flow has been independently verified in this environment.
+Native exchange-held stops/atomic position reductions remain unsupported in the manual UI; Agent Studio adds read-only linked-bot permissions and disabled unsigned delegated preparation, so the UI does not describe planned stops as armed. No live signed execution, native cancellation or populated-account browser flow has been independently verified in this environment.
 
 Before public hosting: review authenticated persistence, session replay protections, proxy/Host settings, CSP wallet compatibility, ingress limits and chain transport availability. Do not simply expose the local dev server, disable origin checks or add a funded backend key.
 
 Readiness tests cover wrong account/chain, identity changes before and during dispatch, duplicate attempts, rejection, transport loss, timeout with a late hash, reload persistence, corrupt intent, mismatched evidence and cancellation revalidation. All signing tests use test doubles. Actual signed wallet compatibility and cancellation remain unverified; see the transaction checklist before any authorized demo.
+
+## Agent Studio extension
+
+Strategies cannot sign. Source-level broadcast is false; no env/config/UI setting enables it. Dry run is default, assisted remains unsigned, autonomous activation is rejected. Worker rejects signing-secret variables without logging values. Delegated ABI preflight verifies identity, grants, SDK size, simulation and gas. Automatic dispatch tests use only an explicitly MOCK transport.
+
+Local control inherits loopback Host/Origin/body/rate restrictions, strict schemas, expected revisions and durable UUID replay protection. SQLite versions/commands/acks/intents and fenced writes survive restarts; pending pause/lost lease discard late work. Reused worker IDs cannot bypass lease protection. Unknown intent/corrupt financial state blocks recovery. Independent volumes/other applications do not coordinate nonces.
+
+This is not hosted identity/authorization. Do not expose it publicly or treat a public owner address as ownership proof. Hosted control needs authentication, ownership/roles, encrypted metadata, audit and isolated operator secrets before ingress. This release stores/accepts no keys. Metadata is not encrypted by the app: protect SQLite/WAL/backups using OS ACLs (0600 on POSIX; inherited Windows ACLs). Monitor storage growth.
+
+Guardian proposes opposite-side IOC without atomic reduce-only protection. reduceOrderFor shrinks resting orders, not positions. Watched stops are not native protection. Grant revocation/pause/emergency/shutdown do not cancel orders or flatten exposure. Local controls cannot stop Railway remotely. See [risk controls](AGENT-RISK-CONTROLS.md) and [operations](AGENT-OPERATIONS.md).

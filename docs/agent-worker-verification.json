@@ -1,9 +1,9 @@
 {
-  "checkedAt": "2026-10-20T16:01:29.281Z",
+  "checkedAt": "2026-10-20T16:18:21.698Z",
   "mode": "READ_ONLY / ISOLATED DRY_RUN",
   "chainId": 50383,
   "pool": "0x4181dd08e73bbcdd1ba3e615a18f6abd941b94c0",
-  "configId": "874f656d-6c99-4649-b9a0-f9304dfba6af",
+  "configId": "d2008218-40a0-4a66-8f68-523f58775c7c",
   "keysRequired": false,
   "signed": false,
   "broadcast": false,
@@ -14,7 +14,7 @@
       "ok": true,
       "details": {
         "workerId": "verification-primary",
-        "heartbeat": 1792512037484,
+        "heartbeat": 1792513049835,
         "broadcastEnabled": false
       }
     },
@@ -37,8 +37,8 @@
       "name": "pause and resume receive actual worker acknowledgements",
       "ok": true,
       "details": {
-        "pauseRequestedAt": 1792512040748,
-        "resumeRequestedAt": 1792512042631,
+        "pauseRequestedAt": 1792513053720,
+        "resumeRequestedAt": 1792513054998,
         "acknowledged": true
       }
     },
@@ -57,8 +57,8 @@
       "ok": true,
       "details": {
         "exitCode": 0,
-        "previousCursor": 1792511100,
-        "restoredCursor": 1792511100,
+        "previousCursor": 1792512000,
+        "restoredCursor": 1792512000,
         "decisions": 6,
         "simulatedFills": 1,
         "realTransactions": 0
@@ -70,12 +70,12 @@
       "details": {
         "chainId": 50383,
         "pool": "0x4181dd08e73bbcdd1ba3e615a18f6abd941b94c0",
-        "block": "28601919",
+        "block": "28612035",
         "place": false,
         "cancel": false,
         "reduce": false,
         "accountKind": "no-contract-code",
-        "checkedAt": 1792512089281,
+        "checkedAt": 1792513101698,
         "scope": "Synthetic public addresses, not user authorization or an actual linked wallet"
       }
     }
