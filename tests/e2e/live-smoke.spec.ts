@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { expectLiveRankedMarkets } from './fixtures';
 test('live UI loads verified markets and captures the local product', async ({ page }, info) => {
   test.skip(process.env.LIVE_TESTS !== '1', 'Optional read-only live smoke; never signs.');
   test.setTimeout(60000);
@@ -11,9 +12,7 @@ test('live UI loads verified markets and captures the local product', async ({ p
   await expect(page.getByRole('img', { name: /Interactive dreamDEX/ })).toBeVisible({
     timeout: 30000,
   });
-  await expect(page.getByRole('button', { name: 'Analyze BTC-PERP', exact: true })).toBeVisible({
-    timeout: 30000,
-  });
+  await expectLiveRankedMarkets(page);
   await page.screenshot({
     path: `docs/screenshots/live-${info.project.name}.png`,
     fullPage: info.project.name === 'desktop',

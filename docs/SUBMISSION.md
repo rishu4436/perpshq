@@ -15,12 +15,19 @@ React/TypeScript workspace, Lightweight Charts, deterministic analysis packages,
 ## Submission checklist
 
 - [ ] Independently confirm current event deadline, track rules, whitelist and judging requirements on the official DoraHacks page. Web retrieval was inaccessible; the brief’s 1 November 2026 23:59 UTC deadline remains user-supplied.
-- [ ] Create the authorized GitHub repository and publish reviewed source. No remote repository has been created by this build.
+- [x] Private source repository created: [rishu4436/perpshq](https://github.com/rishu4436/perpshq).
+- [ ] Owner grants reviewer access or separately authorizes any required public source release. Repository visibility remains private.
 - [ ] Record a genuine, explicitly authorized testnet order and export its evidence. No authored transaction yet.
 - [ ] Record the 3–5 minute demo with accurate feature labels.
 - [ ] Review remaining unsupported features and avoid calling the entire original scope complete.
 - [ ] Publish only approved social posts and add their actual links to README.
 - [ ] Submit through the user’s whitelisted DoraHacks account after final review.
+
+## Readiness evidence
+
+Use [READINESS-AUDIT.md](READINESS-AUDIT.md) for code fixes and exact test results; [TESTNET-TRANSACTION-CHECKLIST.md](TESTNET-TRANSACTION-CHECKLIST.md) for the remaining funded/authorized execution; and [REVIEWER-ACCESS.md](REVIEWER-ACCESS.md) for local review and future hosting preparation. Testnet evidence folder/report format is prepared, with no authored signed transaction claimed. The official DoraHacks page was retried during this audit and remained inaccessible to the web retrieval tool; event eligibility/deadline are still unverified.
+
+Local implementation and automated verification do not complete the bounty submission. The genuine demo, reviewer/public access requirements, approved social links and account submission remain open. Nothing has been deployed, posted or submitted.
 
 ## X post drafts
 

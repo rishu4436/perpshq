@@ -188,7 +188,7 @@ await check('unfunded preview is blocked', () =>
   }),
 );
 await writeFile(
-  'docs/verification-results.json',
+  process.env.PERPSHQ_VERIFICATION_OUTPUT ?? 'docs/verification-results.json',
   JSON.stringify(
     {
       checkedAt: new Date().toISOString(),

@@ -13,7 +13,10 @@
     "lint": "eslint .",
     "probe": "tsx scripts/probe.ts",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "agent:worker": "tsx apps/agent-worker/src/index.ts",
+    "agent:health": "tsx apps/agent-worker/src/healthcheck.ts",
+    "agent:check": "tsx apps/agent-worker/src/index.ts --check-config"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.3.0",

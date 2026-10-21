@@ -1,6 +1,6 @@
 # PerpsHQ
 
-Private source: [rishu4436/perpshq](https://github.com/rishu4436/perpshq).
+Source: [rishu4436/perpshq](https://github.com/rishu4436/perpshq).
 
 **Discover. Analyze. Plan. Trade. Improve.**
 
@@ -42,6 +42,14 @@ Use a normal browser with an injected EIP-1193 wallet when testing signing. The 
 - **Journal:** saved plans, thesis, tags, emotional context, review, transaction attachment and JSON export. Personal records persist in the browser.
 - **Arena & Help:** personal preparation checklist, evidence counts, official Arena link, RPC/indexer diagnostics and source/limitation explanations.
 
+## Agent Studio
+
+Agent Studio adds four configurable strategies, mandatory risk checks, conservative paper accounting, historical evaluation and an independent durable worker. Open `/app#Agent%20Studio`, create/validate an agent, run `npm run agent:worker` separately and request dry run. Saving alone never starts an agent. No wallet or private key is required or accepted by the worker.
+
+The dashboard includes explanations, recorded paper outcomes, actual permission reads, worker acknowledgements and nonsecret Railway exports. **Agent broadcasts and autonomous activation remain disabled in source.** Assisted mode is unsigned observation/preflight. Control is local SQLite; there is no authenticated Railway connection or remote kill switch. Docker/Railway files are prepared, but container verification is blocked by the unavailable Docker engine and nothing is deployed.
+
+Read the [guide](docs/AGENT-STUDIO.md), [architecture](docs/AGENT-STUDIO-ARCHITECTURE.md), [risk controls](docs/AGENT-RISK-CONTROLS.md), [operations](docs/AGENT-OPERATIONS.md) and [release report](docs/AGENT-STUDIO-REPORT.md). Genuine keyless worker startup/pause/duplicate/restart evidence is [recorded here](docs/agent-worker-verification.json). Simulated fills are never signed testnet evidence.
+
 ## Verify
 
 ```powershell
@@ -75,7 +83,7 @@ Captured evidence: [initial SDK probes](docs/probe-results.json), [API checks](d
 
 The homepage at `/` introduces the product; the complete application is at `/app`. Direct preview links can pass a market ID and destination, for example `/app?market=<pool-address>#Trade%20Planner`. This handoff changes only the selected market.
 
-The **Perspective** design system now carries through all nine workspace screens: a custom framing-corner logo, numbered navigation, a connected Discover → Analyze → Plan → Monitor → Review workflow, larger data and form text, and consistent controls. See [design refinements and screen gallery](docs/DESIGN-REFINEMENTS.md).
+The **Perspective** design system now carries through all ten workspace screens: a custom framing-corner logo, numbered navigation, a connected Discover → Analyze → Plan → Monitor → Review workflow, larger data and form text, and consistent controls. See [design refinements and screen gallery](docs/DESIGN-REFINEMENTS.md).
 
 Current screenshots: [desktop landing page](docs/screenshots/landing-desktop.png), [mobile landing page](docs/screenshots/landing-mobile.png), [desktop workspace](docs/screenshots/live-desktop.png) and [mobile workspace](docs/screenshots/live-mobile.png). These are captures of the actual local product. The source data reflects the capture time.
 
@@ -108,6 +116,12 @@ After submission, use the actual receipt, decoded events and indexed order state
 The API has no signer or broadcast endpoint. Personal records live in browser localStorage; public snapshots and verified receipts use SQLite in ignored `data/`. This is single-device persistence. Export important records. No cloud synchronization or authenticated multi-user write API is provided.
 
 Read [SECURITY](docs/SECURITY.md) before extending deployment or signing. The server binds to loopback, validates schemas/Host/Origin, rate limits requests, simulates orders and serves a restrictive production CSP. No mainnet feature exists.
+
+## Readiness audit
+
+The readiness branch hardens reviewed transaction parameters, wallet timeout/reload recovery and cancellation; suppresses stale directional scenarios; monitors each configured market/account alert independently; adds explicit side-aware planning references and preserved journal context; and keeps chart zoom across refresh/overlay changes. Browser alerts require the app to remain open and are not guaranteed background notifications.
+
+See the [audit and exact verification results](docs/READINESS-AUDIT.md), [first authorized transaction checklist](docs/TESTNET-TRANSACTION-CHECKLIST.md), [genuine evidence folder](docs/testnet-execution/README.md), and [reviewer access preparation](docs/REVIEWER-ACCESS.md). No genuine signed order or cancellation has been executed. No public deployment or visibility change has been made.
 
 ## Demo and submission
 
