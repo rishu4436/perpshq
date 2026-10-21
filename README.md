@@ -114,7 +114,3 @@ Read [SECURITY](docs/SECURITY.md) before extending deployment or signing. The se
 Follow the [demo script](docs/DEMO.md). Review [architecture](docs/ARCHITECTURE.md), [SDK integration](docs/SDK-INTEGRATION.md), [research](docs/RESEARCH-AND-FEASIBILITY.md) and [submission preparation](docs/SUBMISSION.md).
 
 Still required for the bounty: a real approved/funded testnet order and its evidence, approval for any public source release, demo recording, actual approved X posts, verified current event requirements and the user’s whitelisted DoraHacks submission. The deadline in the supplied brief is **1 November 2026 at 23:59 UTC**; web access did not independently confirm it.
-
-## X Posts
-
-Three unpublished drafts are in [SUBMISSION.md](docs/SUBMISSION.md), including the requested `@DreamDEXSomnia` tag. The execution announcement must wait for genuine order evidence. **Published links: none.**
