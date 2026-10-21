@@ -58,3 +58,13 @@ Start with README.md and TESTNET-EVIDENCE.md. Run `npm ci`, `npm test`, `npm run
 The separate `fix/perpshq-hackathon-readiness` branch adds complete reviewed-parameter comparison, stable calldata/expiry, persistent timeout/late-hash recovery, identity revision checks, Web Locks where available, stricter receipt matching and cancellation preflight. Stale/insufficient scenarios are suppressed; market/account alerts run independently; explicit side-aware Planner context and original journal snapshots are preserved; ordinary chart refresh and overlays retain zoom.
 
 See [READINESS-AUDIT.md](READINESS-AUDIT.md) for the current verification commands/counts and per-defect findings. Earlier 52/30 counts above describe the baseline only. The original full trading/submission scope remains incomplete until genuine specifically authorized execution and publication/submission requirements are satisfied. This audit does not authorize signing or public deployment.
+
+## Agent Studio, 20 October 2026
+
+Implemented schema-v1 four-strategy builder, deterministic explanations, central risk, conservative paper costs/depth, chronological history, permission/unsigned delegated adapter, independent Node worker and SQLite versions/commands/leases/fencing/recovery. The Agent Studio screen preserves Perspective design and the manual workflow. See [release report](AGENT-STUDIO-REPORT.md) and [testing](AGENT-TESTING.md) for current counts/limits.
+
+Actual keyless Hideki startup, heartbeat, duplicate protection, pause/resume acknowledgement, shutdown and restart/ledger/cursor recovery were verified. Synthetic public-address grant reads returned false; these are not user-wallet authorization. No authored agent transaction exists. Assisted increases are blocked by incomplete actual loss history; signer/broadcast/autonomous activation remain disabled.
+
+Docker/Railway files are prepared; container startup is unverified because Docker Desktop's Linux engine is unavailable. No deployment, domain, funding, grant or trade occurred. Native local verification is not 24/7 cloud uptime. This feature depends on still-open readiness fixes; neither PR is automatically merged.
+
+On 21 October 2026 GitHub reported the existing repository PUBLIC. The owner explicitly instructed “Keep public and push”; Agent Studio publication follows that authorization. No visibility setting was changed by this implementation.

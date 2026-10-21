@@ -7,6 +7,7 @@ export type Page =
   | 'Positions & Risk'
   | 'Portfolio Analytics'
   | 'Trade Journal'
+  | 'Agent Studio'
   | 'Arena Companion'
   | 'Settings & Help';
 
