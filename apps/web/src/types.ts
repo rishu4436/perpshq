@@ -7,6 +7,7 @@ export type Page =
   | 'Positions & Risk'
   | 'Portfolio Analytics'
   | 'Trade Journal'
+  | 'Agent Studio'
   | 'Arena Companion'
   | 'Settings & Help';
 
@@ -17,15 +18,4 @@ export type ScanRow = {
   error?: string;
 };
 
-export type AlertRule = {
-  id: string;
-  marketId: string;
-  symbol: string;
-  type: 'price-above' | 'price-below' | 'rsi-above' | 'atr-above' | 'margin-below';
-  threshold: number;
-  enabled: boolean;
-  triggered?: boolean;
-  checkedAt?: number;
-};
-
-export type AlertEvent = { id: string; text: string; time: number };
+export type { AlertRule, AlertEvent } from '../../../packages/alert-engine';

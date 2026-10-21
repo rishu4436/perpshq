@@ -1,0 +1,90 @@
+{
+  "checkedAt": "2026-10-21T07:09:35.973Z",
+  "scope": "Isolated local QA database / actual read-only Hideki sources",
+  "signed": false,
+  "broadcast": false,
+  "cloudDeployed": false,
+  "checks": [
+    {
+      "name": "actual perpetual discovery",
+      "ok": true,
+      "details": {
+        "marketId": "0x4181dd08e73bbcdd1ba3e615a18f6abd941b94c0"
+      }
+    },
+    {
+      "name": "actual market constraint validation",
+      "ok": true
+    },
+    {
+      "name": "wrong chain rejected",
+      "ok": true
+    },
+    {
+      "name": "secret-shaped configuration field rejected",
+      "ok": true
+    },
+    {
+      "name": "save creates configured not running",
+      "ok": true
+    },
+    {
+      "name": "versioned edit",
+      "ok": true
+    },
+    {
+      "name": "stale version rejected",
+      "ok": true
+    },
+    {
+      "name": "configuration snapshots durable",
+      "ok": true
+    },
+    {
+      "name": "command replay preserves pending acknowledgement",
+      "ok": true
+    },
+    {
+      "name": "changed replay rejected",
+      "ok": true
+    },
+    {
+      "name": "nonsecret actual Railway export",
+      "ok": true
+    },
+    {
+      "name": "actual synthetic-public-address permission read",
+      "ok": true,
+      "details": {
+        "block": "29146395",
+        "scope": "Synthetic public addresses; no user grant inferred"
+      }
+    },
+    {
+      "name": "actual chronological candle report",
+      "ok": true,
+      "details": {
+        "sample": {
+          "from": 1792226700,
+          "to": 1792565100,
+          "availableCandles": 377,
+          "usableCandles": 377,
+          "timeframe": "15m"
+        },
+        "sourceCandleHash": "fbca310d5165d40c4b61d90e8e0a4049b66376683053d4873dd8c8e9abf3a87e"
+      }
+    },
+    {
+      "name": "no invented on-chain evidence",
+      "ok": true
+    },
+    {
+      "name": "cross-origin control rejected",
+      "ok": true
+    },
+    {
+      "name": "legacy manual Planner API remains online",
+      "ok": true
+    }
+  ]
+}

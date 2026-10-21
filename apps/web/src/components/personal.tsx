@@ -53,8 +53,9 @@ export function Alerts({
       </div>
       <div className="panel-copy">
         <p>
-          Rules check the selected market while PerpsHQ is open. Switch to a market to monitor it.
-          Browser-close delivery is unavailable.
+          All enabled market rules use their own market data, independent of your selection. Account
+          rules use fresh account reads. Monitoring runs only while this browser workspace is open;
+          background delivery is not guaranteed.
         </p>
         <form
           className="alert-form"
@@ -113,10 +114,14 @@ export function Alerts({
             />
             <div>
               <strong>
-                {r.symbol} · {r.type.replaceAll('-', ' ')} {r.threshold}
+                {r.type === 'margin-below' ? 'ACCOUNT' : r.symbol} · {r.type.replaceAll('-', ' ')}{' '}
+                {r.threshold}
               </strong>
               <small>
-                Last checked {r.checkedAt ? new Date(r.checkedAt).toLocaleTimeString() : 'not yet'}
+                Last evaluated{' '}
+                {r.checkedAt ? new Date(r.checkedAt).toLocaleTimeString() : 'not yet'} ·{' '}
+                {r.status ?? 'waiting'}
+                {r.message ? ' · ' + r.message : ''}
               </small>
             </div>
             <button
@@ -403,6 +408,32 @@ export function Journal({
                   </button>
                 </div>
                 <div className="form-body">
+                  {e.context && (
+                    <details className="journal-context">
+                      <summary>
+                        Original market context · {e.context.timeframe} ·{' '}
+                        {new Date(e.context.capturedAt).toLocaleString()}
+                      </summary>
+                      <p>
+                        {e.context.quality.stale
+                          ? 'Unavailable / stale context at capture'
+                          : e.context.analysis.trend + ' · ' + e.context.analysis.regime}
+                      </p>
+                      <p>{e.context.analysis.structure}</p>
+                      <p>{e.context.analysis.scenarios.bullish}</p>
+                      <p>{e.context.analysis.scenarios.bearish}</p>
+                      <small>
+                        {e.context.quality.source} · {e.context.quality.count} completed candles ·{' '}
+                        {e.context.quality.notes.join(' ')}
+                      </small>
+                      {e.plan?.references?.map((r, i) => (
+                        <p key={i}>
+                          {r.field}: {r.value} · {r.source} · selected{' '}
+                          {new Date(r.selectedAt).toLocaleString()}
+                        </p>
+                      ))}
+                    </details>
+                  )}
                   <label className="field">
                     <span>Trade thesis</span>
                     <textarea

@@ -1,0 +1,95 @@
+{
+  "checkedAt": "2026-10-21T07:11:10.365Z",
+  "mode": "READ_ONLY / ISOLATED DRY_RUN",
+  "chainId": 50383,
+  "pool": "0x4181dd08e73bbcdd1ba3e615a18f6abd941b94c0",
+  "configId": "190c5585-4ea1-4137-b912-edc70db93aee",
+  "keysRequired": false,
+  "signed": false,
+  "broadcast": false,
+  "cloudDeployed": false,
+  "checks": [
+    {
+      "name": "real read-only startup and heartbeat",
+      "ok": true,
+      "details": {
+        "workerId": "verification-primary",
+        "heartbeat": 1792566578368,
+        "broadcastEnabled": false
+      }
+    },
+    {
+      "name": "duplicate process cannot own the same durable volume",
+      "ok": true,
+      "details": {
+        "duplicateExitCode": 3221226505,
+        "leaseOwner": "verification-primary"
+      }
+    },
+    {
+      "name": "process health command reads actual heartbeat",
+      "ok": true,
+      "details": {
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "pause and resume receive actual worker acknowledgements",
+      "ok": true,
+      "details": {
+        "pauseRequestedAt": 1792566589042,
+        "resumeRequestedAt": 1792566592291,
+        "acknowledged": true
+      }
+    },
+    {
+      "name": "graceful bounded process shutdown persists state",
+      "ok": true,
+      "details": {
+        "exitCode": 0,
+        "heartbeatState": "stopped",
+        "decisions": 4,
+        "paperFills": 0
+      }
+    },
+    {
+      "name": "restart restores cursor, ledger and unique decision records",
+      "ok": true,
+      "details": {
+        "exitCode": 0,
+        "previousCursor": 1792565100,
+        "restoredCursor": 1792565100,
+        "decisions": 5,
+        "simulatedFills": 0,
+        "realTransactions": 0
+      }
+    },
+    {
+      "name": "forced termination preserves state and blocks takeover until lease expiry",
+      "ok": true,
+      "details": {
+        "crashExitCode": null,
+        "previousFence": 3,
+        "recoveredFence": 4,
+        "previousCursor": 1792565100,
+        "recoveredCursor": 1792565100,
+        "realTransactions": 0
+      }
+    },
+    {
+      "name": "actual pool operator read ABI with synthetic public addresses",
+      "ok": true,
+      "details": {
+        "chainId": 50383,
+        "pool": "0x4181dd08e73bbcdd1ba3e615a18f6abd941b94c0",
+        "block": "29147369",
+        "place": false,
+        "cancel": false,
+        "reduce": false,
+        "accountKind": "no-contract-code",
+        "checkedAt": 1792566670364,
+        "scope": "Synthetic public addresses, not user authorization or an actual linked wallet"
+      }
+    }
+  ]
+}
