@@ -1,18 +1,18 @@
 {
-  "checkedAt": "2026-10-20T08:22:57.347Z",
-  "base": "http://127.0.0.1:3002",
+  "checkedAt": "2026-10-21T07:00:03.609Z",
+  "base": "http://127.0.0.1:3003",
   "mode": "READ ONLY — no wallet signing or broadcasting",
   "results": [
     {
       "name": "health",
       "ok": true,
-      "ms": 31,
+      "ms": 33,
       "summary": {
         "ok": true,
         "name": "PerpsHQ",
         "chainId": 50383,
         "mode": "read-only API / browser signing",
-        "now": 1792484566577
+        "now": 1792565983393
       }
     },
     {
@@ -28,22 +28,22 @@
     {
       "name": "cockpit",
       "ok": true,
-      "ms": 953,
+      "ms": 10,
       "summary": {
-        "count": 286,
+        "count": 376,
         "source": "dreamDEX Hideki perpetual fills · SDK indexer",
         "gaps": 1,
         "stale": false,
-        "rsi": 33.89773983618598,
-        "mark": 81323.27812309988,
+        "rsi": 51.69070491038257,
+        "mark": 82660.05720894893,
         "bookLevels": 40,
-        "timeframes": ["15m", "1h", "4h"]
+        "timeframes": ["15m", "4h", "1h"]
       }
     },
     {
       "name": "scanner and actual bucket stats",
       "ok": true,
-      "ms": 2825,
+      "ms": 2945,
       "summary": {
         "rows": 21,
         "volumeCoverage": 21,
@@ -53,10 +53,10 @@
     {
       "name": "funding history",
       "ok": true,
-      "ms": 359,
+      "ms": 369,
       "summary": {
         "count": 24,
-        "firstRate1h": 0.0002208613821668831,
+        "firstRate1h": 0.0001459394367879705,
         "interval": 3600,
         "window": 28800
       }
@@ -64,7 +64,7 @@
     {
       "name": "empty public account including analytics",
       "ok": true,
-      "ms": 1008,
+      "ms": 1476,
       "summary": {
         "equity": "0",
         "analytics": [],
@@ -75,7 +75,7 @@
     {
       "name": "public active-account reads",
       "ok": true,
-      "ms": 1151,
+      "ms": 8111,
       "summary": {
         "positions": 21,
         "analytics": 21,
@@ -83,13 +83,16 @@
         "orders": 100,
         "fills": 100,
         "fundingPayments": 100,
-        "errors": []
+        "errors": [
+          "Exposure observations do not share the margin block",
+          "Voucher: @somnia-chain/markets-sdk: rpc readContract voucherExpiryOf failed: The request took too long to respond."
+        ]
       }
     },
     {
       "name": "diagnostics",
       "ok": true,
-      "ms": 546,
+      "ms": 883,
       "summary": [
         {
           "name": "RPC chain",
@@ -112,7 +115,7 @@
     {
       "name": "unsigned simulation and gas guard for a public collateral account",
       "ok": true,
-      "ms": 1962,
+      "ms": 1970,
       "summary": {
         "simulationPassed": true,
         "gasEstimationReached": true,
@@ -125,7 +128,7 @@
     {
       "name": "strict invalid input rejection",
       "ok": true,
-      "ms": 16,
+      "ms": 10,
       "summary": {
         "error": "marketId: Invalid input: expected string, received undefined; side: Invalid option: expected one of \"long\"|\"short\"; type: Invalid option: expected one of \"limit\"|\"market\"; entry: Invalid input: expected string, received undefined; stop: Invalid input: expected string, received undefined; target: Invalid input: expected string, received undefined; riskBudget: Invalid input: expected string, received undefined; collateral: Invalid input: expected string, received undefined; leverage: Invalid input: expected string, received undefined; slippageBps: Invalid input: expected string, received undefined; : Unrecognized key: \"unexpected\""
       }
@@ -133,7 +136,7 @@
     {
       "name": "cross-origin API denial",
       "ok": true,
-      "ms": 14,
+      "ms": 10,
       "summary": {
         "error": "Cross-origin API access is disabled."
       }
@@ -141,7 +144,7 @@
     {
       "name": "unknown market rejection",
       "ok": true,
-      "ms": 4,
+      "ms": 15,
       "summary": {
         "error": "Unknown Hideki perpetual pool. Refresh market discovery."
       }
@@ -149,9 +152,9 @@
     {
       "name": "unfunded preview is blocked",
       "ok": true,
-      "ms": 1274,
+      "ms": 4395,
       "summary": {
-        "error": "Order blocked by official account sizing: collateral"
+        "error": "@somnia-chain/markets-sdk: rpc readContract getSystemConfig failed: The request took too long to respond."
       }
     }
   ]

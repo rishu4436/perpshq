@@ -109,6 +109,8 @@ export interface PlanInput {
   quantity?: string;
 }
 export interface Plan {
+  context?: MarketContextSnapshot;
+  references?: PlanningReference[];
   input: PlanInput;
   quantity: string;
   rawQuantity: string;
@@ -122,6 +124,7 @@ export interface Plan {
   errors: string[];
 }
 export interface JournalEntry {
+  context?: MarketContextSnapshot;
   id: string;
   createdAt: number;
   market: string;
@@ -132,6 +135,25 @@ export interface JournalEntry {
   review: string;
   plan?: Plan;
   transactionHash?: string;
+}
+export interface MarketContextSnapshot {
+  marketId: string;
+  symbol: string;
+  timeframe: Timeframe;
+  capturedAt: number;
+  markPrice?: number;
+  markUpdatedAt?: number;
+  quality: Quality;
+  analysis: Analysis;
+  timeframes: MarketDetail['timeframes'];
+}
+export interface PlanningReference {
+  field: 'entry' | 'stop' | 'target';
+  source: 'mark' | 'support' | 'resistance';
+  value: string;
+  selectedAt: number;
+  observedAt: number;
+  timeframe: Timeframe;
 }
 export type OrderState =
   | 'draft'
@@ -147,6 +169,7 @@ export type OrderState =
   | 'filled'
   | 'cancelled'
   | 'rejected'
+  | 'reverted'
   | 'unknown';
 export const NETWORK = {
   id: 50383,

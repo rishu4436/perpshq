@@ -11,7 +11,7 @@ Updated 20 October 2026. Statuses reflect observed behavior, not simply the pres
 | Phase 4: Scanner                 | Partially complete | Search/sort/presets/watchlist, technical factors, actual volume/change, configurable weights, missing-data behavior and market handoff tested. Scanner has no cross-timeframe factor until entering the cockpit.                                                                                                       |
 | Phase 5: Trade planning          | Complete           | Manual inputs, exact decimals, tick/lot/minimum, risk/slippage/reward/margin checks, persistent plans and journal connection tested. Planning leverage does not change protocol settings.                                                                                                                              |
 | Phase 6: Real execution          | Partially complete | Official ABI + sizing + simulation/gas checks + wallet consent + receipt recovery implemented. Mocked browser paths pass. Unsigned real simulation reached the STT guard; ready-to-sign and signed execution remain unverified. No real authored hash.                                                                 |
-| Phase 7: Monitoring / management | Partially complete | Actual public populated-account reads verified, position analytics and funding, order history, persistent in-app alerts and reconciliation. Native cancellation implemented but unsigned/signed cancellation not independently verified. Reduce/close/protective orders unsupported.                                   |
+| Phase 7: Monitoring / management | Partially complete | Actual public populated-account reads verified, position analytics and funding, order history, persistent in-app alerts and reconciliation. Native cancellation preparation/revalidation is mock-tested; actual signed cancellation remains unverified. Reduce/close/protective orders unsupported.                    |
 | Phase 8: Analytics / journal     | Partially complete | Actual fills/changes/funding, observed equity, bounded accounting, local journal and exports. No closed-position win rate, lifetime equity reconstruction, robust drawdown/cash-flow attribution or synchronized multi-device storage.                                                                                 |
 | Phase 9: Assistant / Arena       | Partially complete | Deterministic fact-based assistant and preparation companion implemented. LLM layer not configured; Arena scoring/eligibility not inferred or verified.                                                                                                                                                                |
 | Phase 10: Polish / submission    | Partially complete | Responsive desktop/mobile, production browser suite, screenshots, source formatting, security review and documents. Private GitHub repository created with user authorization. Hosting, public source release, demo recording, real trade evidence, posting and submission still await authorization / account access. |
@@ -25,7 +25,7 @@ Desktop and mobile layouts, mobile menu/Escape behavior, keyboard workflow tabs,
 
 The final inner-app polish adds a shared perspective mark and wordmark, clearer typography and contrast, numbered navigation and workflow links, larger chart labels, structured planning sections, meaningful draft guidance, account onboarding, journal cards, visible checklist progress, compact score settings and expandable diagnostic details. Wide market tables keep their market column visible while scrolling; desktop action columns remain visible too. See [design refinements](DESIGN-REFINEMENTS.md).
 
-## Verification record
+## Original baseline verification record
 
 - **52 unit / SDK integration tests passed**, including five read-only live tests. The default offline run skips those five.
 - **30 production browser tests passed**: 16 mocked application workflows, six homepage interaction/handoff cases, two workflow/keyboard/draft-state checks, and six read-only live homepage/dashboard/all-screen checks across desktop and mobile. The all-screen review also checks 320px, 768px and 1024px widths. Mocked signatures/hashes are explicitly test-only.
@@ -45,10 +45,32 @@ The final inner-app polish adds a shared perspective mark and wordmark, clearer 
 
 1. Complete one specific approved external-wallet testnet order, verify its real receipt/order/fill state and journal its evidence.
 2. Validate cancellation with an approved resting order; implement native reduce-only closing and protective orders using confirmed SDK capabilities and per-action authorization.
-3. Expose custom indicator periods/thresholds and broaden alert types (EMA crossover, position loss, order-state changes). Current rules cover mark, RSI, ATR and account maintenance buffer while selected/open.
+3. Expose custom indicator periods/thresholds and broaden alert types (EMA crossover, position loss, order-state changes). Current rules cover mark, RSI, ATR and account maintenance buffer for each configured market while the browser remains open.
 4. Add robust complete-position accounting and cash-flow-adjusted equity/drawdown before publishing lifetime performance statistics.
 5. Review deployment/authentication requirements, publish only after approval, record the demo and finalize the user’s submission.
 
 ## Resume instructions
 
 Start with README.md and TESTNET-EVIDENCE.md. Run `npm ci`, `npm test`, `npm run lint`, `npm run build`, then the local production server. Do not treat captured JSON as current live data or mocked CI hashes as execution evidence. Backend edits require restart. Personal state is browser-local; public SQLite data is ignored. There is no server private key to recover or configure.
+
+## Readiness audit, 20 October 2026
+
+The separate `fix/perpshq-hackathon-readiness` branch adds complete reviewed-parameter comparison, stable calldata/expiry, persistent timeout/late-hash recovery, identity revision checks, Web Locks where available, stricter receipt matching and cancellation preflight. Stale/insufficient scenarios are suppressed; market/account alerts run independently; explicit side-aware Planner context and original journal snapshots are preserved; ordinary chart refresh and overlays retain zoom.
+
+See [READINESS-AUDIT.md](READINESS-AUDIT.md) for the current verification commands/counts and per-defect findings. Earlier 52/30 counts above describe the baseline only. The original full trading/submission scope remains incomplete until genuine specifically authorized execution and publication/submission requirements are satisfied. This audit does not authorize signing or public deployment.
+
+## Agent Studio, 20 October 2026
+
+Implemented schema-v1 four-strategy builder, deterministic explanations, central risk, conservative paper costs/depth, chronological history, permission/unsigned delegated adapter, independent Node worker and SQLite versions/commands/leases/fencing/recovery. The Agent Studio screen preserves Perspective design and the manual workflow. See [release report](AGENT-STUDIO-REPORT.md) and [testing](AGENT-TESTING.md) for current counts/limits.
+
+Actual keyless Hideki startup, heartbeat, duplicate protection, pause/resume acknowledgement, shutdown and restart/ledger/cursor recovery were verified. Synthetic public-address grant reads returned false; these are not user-wallet authorization. No authored agent transaction exists. Assisted increases are blocked by incomplete actual loss history; signer/broadcast/autonomous activation remain disabled.
+
+Docker/Railway files are prepared; container startup is unverified because Docker Desktop's Linux engine is unavailable. No deployment, domain, funding, grant or trade occurred. Native local verification is not 24/7 cloud uptime. This feature depends on still-open readiness fixes; neither PR is automatically merged.
+
+On 21 October 2026 GitHub reported the existing repository PUBLIC. The owner explicitly instructed “Keep public and push”; Agent Studio publication follows that authorization. No visibility setting was changed by this implementation.
+
+## Final integration sprint, 21 October 2026
+
+Current default main advanced to a294315 with owner roadmap/README edits. PR #1 d8f0e95 and stacked PR #2 41ef968 remain open/green. The consolidated release branch starts from current main and merges both without code conflicts; the roadmap conflict preserves manual-MVP priority and accurately marks implemented dry run. README's removed X Posts section stays removed.
+
+Release fixes cover complete on-chain order/active-position exposure, snapshot consistency, secondary-frame/gap integrity, current paper-fill costs/limits, retained fill IDs, explicit rejection of non-atomic delegated exits and overlapping worker cycles. 246 unit/integration checks passed including five read-only live cases; default skips those five and passes 241. Eight actual native worker checks include forced termination, blocked premature takeover and fenced recovery. Real signed execution remains absent. See [final audit](FINAL-RELEASE-AUDIT.md) for final browser/API/CI counts and exact remaining approvals.

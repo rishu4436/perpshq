@@ -79,8 +79,12 @@ export function analyze(
   const vols = c.map((v) => v.volume);
   const vm = vols.every((v) => v !== undefined) ? last(sma(vols as number[], 20)) : null;
   values.relativeVolume = vm && vols.at(-1)! >= 0 ? vols.at(-1)! / vm : null;
-  const z = zones(c),
-    s = structure(c),
+  const levelsAvailable = !stale && c.length >= 50;
+  const unavailableReason = stale
+    ? 'history is stale or missing'
+    : '50 completed contiguous candles are required';
+  const z = levelsAvailable ? zones(c) : [],
+    s = levelsAvailable ? structure(c) : 'Structure unavailable: ' + unavailableReason,
     support = z.find((v) => v.kind === 'support'),
     resistance = z.find((v) => v.kind === 'resistance');
   let trend: Analysis['trend'] = 'Unavailable';
@@ -128,7 +132,12 @@ export function analyze(
     {
       name: 'Confirmed structure',
       weight: weights.structure,
-      value: s.includes('Insufficient') ? null : s.includes('Consolidation') ? 0.3 : 1,
+      value:
+        !levelsAvailable || s.includes('Insufficient')
+          ? null
+          : s.includes('Consolidation')
+            ? 0.3
+            : 1,
       reason: s,
     },
     {
@@ -166,7 +175,7 @@ export function analyze(
   );
   const regime = stale
     ? 'Data unavailable'
-    : values.adx === null
+    : c.length < 50 || values.adx === null
       ? 'Warming up'
       : values.adx >= 25
         ? 'Directional conditions'
@@ -175,6 +184,11 @@ export function analyze(
   const explanations = stale
     ? [
         'Current completed history is missing or stale; indicator interpretations and ranking are disabled.',
+        'RSI unavailable: history is stale or missing.',
+        'MACD unavailable: history is stale or missing.',
+        'ATR unavailable: history is stale or missing.',
+        'Support unavailable: history is stale or missing.',
+        'Resistance unavailable: history is stale or missing.',
       ]
     : [
         `${trend === 'Unavailable' ? 'Trend analysis is warming up' : trend + ' EMA alignment'} in the completed candle history.`,
@@ -205,12 +219,16 @@ export function analyze(
     factors: stale ? factors.map((f) => ({ ...f, value: null, reason: 'Stale history' })) : factors,
     explanations,
     scenarios: {
-      bullish: resistance
-        ? `If a completed candle closes above ${fmt(resistance.high)}, reassess momentum and available liquidity before planning a long.`
-        : 'Wait for a confirmed resistance zone and adequate history before evaluating a breakout.',
-      bearish: support
-        ? `If support below ${fmt(support.low)} fails on a completed candle, reassess downside exposure.`
-        : 'No validated support breakdown level is available.',
+      bullish: !levelsAvailable
+        ? 'Bullish scenario unavailable: ' + unavailableReason + '.'
+        : resistance
+          ? `If a completed candle closes above ${fmt(resistance.high)}, reassess momentum and available liquidity before planning a long.`
+          : 'Wait for a confirmed resistance zone and adequate history before evaluating a breakout.',
+      bearish: !levelsAvailable
+        ? 'Bearish scenario unavailable: ' + unavailableReason + '.'
+        : support
+          ? `If support below ${fmt(support.low)} fails on a completed candle, reassess downside exposure.`
+          : 'No validated support breakdown level is available.',
       neutral:
         'If timeframes disagree, history is stale, or the risk budget cannot meet market minimums, keeping a plan unexecuted is a valid outcome.',
     },

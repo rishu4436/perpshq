@@ -23,6 +23,11 @@ import {
   type PlanInput,
   type Plan,
 } from '../../../../packages/shared-types';
+import {
+  assertPreview,
+  assertSameApproval,
+  SubmissionFailure,
+} from '../../../../packages/trade-planner/approval';
 import { planTrade, fromRaw } from '../../../../packages/risk-engine';
 import {
   api,
@@ -39,10 +44,20 @@ import {
 } from '../lib';
 import { useWallet } from '../wallet';
 import type { Page } from '../types';
+import { IntelligenceContext } from './intelligence-context';
+import {
+  snapshotContext,
+  contextStatus,
+  entryReference,
+} from '../../../../packages/trade-planner/context';
+import type { MarketContextSnapshot, PlanningReference } from '../../../../packages/shared-types';
 import { Metric, Badge, Empty, ErrorNote, Coin, Skeleton } from './ui';
+import { ReadinessChecklist } from './readiness-checklist';
+import { recordActivity } from '../activity';
 
 export function Planner({
   market: m,
+  detail,
   wallet,
   onSave,
   onJournal,
@@ -79,8 +94,52 @@ export function Planner({
     [status, setStatus] = useState('Draft'),
     [tx, setTx] = useState<string>(),
     [now, setNow] = useState(Date.now());
+  const [provenance, setProvenance] = useStored<{
+    context?: MarketContextSnapshot;
+    references: PlanningReference[];
+  }>('perpshq.planner.context.' + m.id, { references: [] });
   const lock = useRef(false);
-  const plan = useMemo(() => planTrade({ ...input, marketId: m.id }, m), [input, m]);
+  const activityFlow = useRef(crypto.randomUUID());
+  const previewGeneration = useRef('');
+  previewGeneration.current = JSON.stringify([input, wallet.address, wallet.chain]);
+  const readinessAccount = useQuery({
+    queryKey: ['account', wallet.address],
+    queryFn: () => api<AccountData>('/account/' + wallet.address),
+    enabled: !!wallet.address,
+    refetchInterval: 30000,
+  });
+  function activity(
+    state: Parameters<typeof recordActivity>[0]['state'],
+    detail: string,
+    hash?: string,
+  ) {
+    if (wallet.address)
+      recordActivity({
+        flowId: activityFlow.current,
+        account: wallet.address,
+        marketId: m.id,
+        state,
+        detail,
+        hash,
+      });
+  }
+  const plan = useMemo(
+    () => ({
+      ...planTrade({ ...input, marketId: m.id }, m),
+      context: provenance.context ?? (detail ? snapshotContext(detail) : undefined),
+      references: provenance.references,
+    }),
+    [input, m, detail, provenance],
+  );
+  function applyReference(reference: PlanningReference) {
+    setProvenance((old) => ({
+      context: old.context ?? (detail ? snapshotContext(detail) : undefined),
+      references: [...old.references.filter((r) => r.field !== reference.field), reference],
+    }));
+    setInput((old) => ({ ...old, [reference.field]: reference.value }));
+    setError('');
+    setStatus('Draft');
+  }
   const incomplete = (
     ['entry', 'stop', 'target', 'riskBudget', 'collateral', 'leverage', 'slippageBps'] as const
   ).some((key) => !input[key].trim());
@@ -96,7 +155,9 @@ export function Planner({
     enabled: !!tx && !!wallet.address,
     refetchInterval: (q) =>
       q.state.data &&
-      ['filled', 'cancelled', 'rejected', 'resting', 'partial'].includes(q.state.data.state)
+      ['filled', 'cancelled', 'reverted', 'rejected', 'resting', 'partial'].includes(
+        q.state.data.state,
+      )
         ? false
         : 5000,
     retry: false,
@@ -117,27 +178,41 @@ export function Planner({
     return () => clearInterval(t);
   }, [preview]);
   function field(k: keyof PlanInput, value: string) {
+    if (['entry', 'stop', 'target'].includes(k))
+      setProvenance((old) => ({ ...old, references: old.references.filter((r) => r.field !== k) }));
     setInput((v) => ({ ...v, [k]: value }));
     setError('');
     setStatus('Draft');
   }
   async function validate() {
     if (!wallet.address || !wallet.correct) return;
+    const generation = previewGeneration.current;
+    activity('draft', 'Plan validation requested for ' + m.symbol);
     setBusy(true);
     setStatus('Validating');
     setError('');
     try {
       const p = await api<Preview>('/preview', { input, account: wallet.address });
-      if (
-        p.to.toLowerCase() !== m.poolAddress.toLowerCase() ||
-        p.account.toLowerCase() !== wallet.address.toLowerCase() ||
-        p.chainId !== NETWORK.id
-      )
-        throw new Error('Preview does not match the selected market, account or chain');
+      if (generation !== previewGeneration.current) {
+        setStatus('Draft');
+        setError('Plan or wallet changed while validating. Validate the current plan again.');
+        return;
+      }
+      assertPreview(p, wallet.address, m.poolAddress);
       setPreview(p);
       setConsent(false);
       setNow(Date.now());
       setStatus('Ready for confirmation');
+      activity(
+        'reviewed',
+        'Preview prepared for ' +
+          plan.quantity +
+          ' ' +
+          m.baseSymbol +
+          ' at bound ' +
+          p.rawPrice +
+          ' raw quote units',
+      );
     } catch (e) {
       setError(errorMessage(e));
       setStatus('Blocked');
@@ -152,24 +227,36 @@ export function Planner({
     setError('');
     try {
       if (Date.now() > preview.expiresAt) throw new Error('Preview expired. Validate again.');
-      const fresh = await api<Preview>('/preview', { input, account: wallet.address });
-      if (
-        fresh.rawPrice !== preview.rawPrice ||
-        fresh.rawQuantity !== preview.rawQuantity ||
-        fresh.to !== preview.to ||
-        fresh.account !== preview.account
-      )
-        throw new Error('Order parameters changed. Review a new preview.');
+      const fresh = await api<Preview>('/preview', {
+        input,
+        account: wallet.address,
+        approvedData: preview.data,
+      });
+      assertSameApproval(preview, fresh);
       setStatus('Awaiting wallet signature');
+      activity('signature', 'Exact preview revalidated; awaiting wallet response.');
       const hash = await wallet.send(fresh);
       setTx(hash);
       onTransaction({ hash, marketId: m.id, account: fresh.account, state: 'pending' });
       setStatus('Transaction pending');
+      activity('pending', 'Wallet returned a transaction hash.', hash);
       setPreview(undefined);
     } catch (e) {
       const msg = errorMessage(e);
+      activity(
+        e instanceof SubmissionFailure && e.outcome === 'unknown' ? 'unknown' : 'rejected',
+        msg.slice(0, 500),
+      );
       setError(msg);
-      setStatus(/reject|denied/i.test(msg) ? 'Signature rejected' : 'Unknown / not broadcast');
+      setStatus(
+        e instanceof SubmissionFailure
+          ? e.outcome === 'rejected'
+            ? 'Signature rejected'
+            : e.outcome === 'unknown'
+              ? 'Unknown broadcast outcome'
+              : 'Blocked'
+          : 'Blocked',
+      );
     } finally {
       setBusy(false);
       lock.current = false;
@@ -190,6 +277,19 @@ export function Planner({
   );
   return (
     <>
+      <ReadinessChecklist
+        wallet={wallet}
+        account={readinessAccount.data}
+        market={m}
+        planErrors={incomplete ? ['Complete all plan fields.'] : plan.errors}
+      />
+      <IntelligenceContext
+        detail={detail}
+        input={input}
+        original={provenance.context}
+        onReference={applyReference}
+        onImport={(context) => onJournal({ ...plan, context })}
+      />
       <div className="planner-layout">
         <section className="panel planner-form">
           <div className="panel-head">
@@ -235,8 +335,18 @@ export function Planner({
                 <strong>{price(m.markPrice)}</strong>
                 <button
                   className="text-button"
-                  disabled={!m.markPrice || !!m.error}
-                  onClick={() => field('entry', String(m.markPrice))}
+                  disabled={!contextStatus(detail).markFresh}
+                  onClick={() => {
+                    if (detail && contextStatus(detail).markFresh)
+                      applyReference({
+                        field: 'entry',
+                        source: 'mark',
+                        value: entryReference(detail),
+                        selectedAt: Date.now(),
+                        observedAt: detail.market.markUpdatedAt!,
+                        timeframe: detail.candles[0]?.timeframe ?? '15m',
+                      });
+                  }}
                 >
                   Use mark as entry
                 </button>
@@ -272,7 +382,10 @@ export function Planner({
               <button
                 className="secondary"
                 disabled={plan.errors.length > 0}
-                onClick={() => onSave(plan)}
+                onClick={() => {
+                  setProvenance((old) => ({ ...old, context: plan.context }));
+                  onSave(plan);
+                }}
               >
                 <BookOpen size={14} />
                 Save plan
@@ -458,7 +571,10 @@ export function Planner({
               <div className="summary-row">
                 <span>Quantity</span>
                 <strong>
-                  {plan.quantity} {m.baseSymbol}
+                  {preview.rawQuantity
+                    ? fromRaw(preview.rawQuantity, m.baseDecimals)
+                    : 'Unavailable'}{' '}
+                  {m.baseSymbol}
                 </strong>
               </div>
               <div className="summary-row">
@@ -629,13 +745,14 @@ export function Positions({
     setBusy(true);
     setError('');
     try {
-      setPreview(
-        await api<Preview>('/cancel-preview', {
-          marketId: m.id,
-          orderId: id,
-          account: wallet.address,
-        }),
-      );
+      const p = await api<Preview>('/cancel-preview', {
+        marketId: m.id,
+        orderId: id,
+        account: wallet.address,
+      });
+      assertPreview(p, wallet.address!, m.poolAddress);
+      if (p.orderId !== id) throw new Error('Cancellation order ID changed');
+      setPreview(p);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -646,7 +763,14 @@ export function Positions({
     if (!preview || busy) return;
     setBusy(true);
     try {
-      const hash = await wallet.send(preview);
+      if (!preview.orderId) throw new Error('Cancellation order ID is missing');
+      const fresh = await api<Preview>('/cancel-preview', {
+        marketId: preview.to,
+        orderId: preview.orderId,
+        account: preview.account,
+      });
+      assertSameApproval(preview, fresh);
+      const hash = await wallet.send(fresh);
       onTransaction({ hash, marketId: preview.to, account: preview.account, state: 'pending' });
       setPreview(undefined);
     } catch (e) {
@@ -738,6 +862,14 @@ export function Positions({
         <div className="panel-head">
           <h3>Orders</h3>
           <small>Latest 100 indexed orders</small>
+        </div>
+        <div className="disclaimer">
+          This history is bounded and may lag. Agent risk uses a separate authoritative open-order
+          and active-position snapshot.
+          {a?.exposure &&
+            (a.exposure.complete
+              ? ' Current risk snapshot complete at block ' + a.exposure.blockNumber + '.'
+              : ' Current exposure is incomplete; risk-increasing agent proposals are blocked.')}
         </div>
         {a?.orders?.length ? (
           <div className="table-scroll">
@@ -933,6 +1065,13 @@ export function SubmissionRecovery({
       setBusy(false);
     }
   }
+  if (s.invalid)
+    return (
+      <div className="notice danger" role="alert">
+        The stored submission record is unreadable. Signing is locked. Inspect and export browser
+        storage and wallet activity before recovery.
+      </div>
+    );
   return (
     <section className="panel">
       <div className="panel-head">

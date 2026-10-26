@@ -1,0 +1,69 @@
+{
+  "checkedAt": "2026-10-21T07:15:54.108207+00:00",
+  "implementationCommit": "704d8ba1a75bc25ff31ec3c6508e4389f7e10727",
+  "releaseStatus": "PARTIALLY_READY",
+  "unitDefault": {
+    "passed": 241,
+    "failed": 0,
+    "skipped": 5
+  },
+  "unitWithReadOnlyLive": {
+    "passed": 246,
+    "failed": 0,
+    "skipped": 0,
+    "actualReadOnlyLiveCases": 5
+  },
+  "fullProductionBrowser": {
+    "passed": 57,
+    "failed": 0,
+    "skipped": 1
+  },
+  "finalStudioRerun": {
+    "passed": 14,
+    "failed": 0,
+    "skipped": 0,
+    "overlapsFullSuite": true
+  },
+  "scripts": {
+    "worker": {
+      "checkedAt": "2026-10-21T07:11:10.365Z",
+      "passed": 8,
+      "failed": 0,
+      "evidence": "agent-worker-verification.json"
+    },
+    "agentApi": {
+      "checkedAt": "2026-10-21T07:09:35.973Z",
+      "passed": 16,
+      "failed": 0,
+      "evidence": "agent-http-verification.json"
+    },
+    "legacyApi": {
+      "checkedAt": "2026-10-21T07:00:03.609Z",
+      "passed": 13,
+      "failed": 0,
+      "evidence": "verification-results.json"
+    }
+  },
+  "lint": "passed",
+  "format": "passed",
+  "typecheck": "passed",
+  "build": "passed",
+  "dependencyAudit": {
+    "installed": 295,
+    "audited": 296,
+    "knownVulnerabilities": 0
+  },
+  "container": "BLOCKED: Docker Linux engine pipe unavailable",
+  "signed": false,
+  "broadcast": false,
+  "cloudDeployed": false,
+  "mainMerged": false,
+  "autonomousExecutionEnabled": false,
+  "credentialScan": "final-security-scan.json",
+  "limitations": [
+    "No user-owned funded authorized authored transaction",
+    "Active-account read could be incomplete/cross-block; risk blocks",
+    "No authenticated remote control or cloud uptime proof",
+    "Organizer rules inaccessible; deadline unverified"
+  ]
+}

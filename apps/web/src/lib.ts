@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { JournalEntry, Plan, Market } from '../../../packages/shared-types';
+import { loadStored, saveStored } from './storage';
 export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (
@@ -20,6 +21,7 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
     method: body === undefined ? 'GET' : 'POST',
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(path === '/workspace/accounting' ? 120000 : 30000),
   });
   const data = await r.json();
   if (!r.ok) throw new Error(data.error ?? `Request failed (${r.status})`);
@@ -27,16 +29,12 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
 }
 export function useStored<T>(key: string, initial: T) {
   const [v, set] = useState<T>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(key) ?? 'null') ?? initial;
-    } catch {
-      return initial;
-    }
+    return loadStored(localStorage, key, initial);
   });
   function update(next: T | ((old: T) => T)) {
     set((old) => {
       const n = typeof next === 'function' ? (next as (old: T) => T)(old) : next;
-      localStorage.setItem(key, JSON.stringify(n));
+      saveStored(localStorage, key, n, initial);
       return n;
     });
   }
@@ -74,10 +72,12 @@ export function journalEntry(m: Market, plan?: Plan, wallet?: string, hash?: str
     emotion: 'Neutral',
     review: '',
     plan,
+    context: plan?.context,
     transactionHash: hash,
   };
 }
 export interface AccountData {
+  exposure?: { complete: boolean; blockNumber: string | null; source: string; reasons: string[] };
   address: string;
   fetchedAt: number;
   quoteDecimals: number;
@@ -136,21 +136,7 @@ export interface AccountData {
       }[];
   voucher: unknown;
 }
-export interface Preview {
-  chainId: number;
-  account: string;
-  to: string;
-  data: `0x${string}`;
-  value: string;
-  gas: string;
-  expiresAt: number;
-  market: string;
-  estimatedGasSTT?: string;
-  rawPrice?: string;
-  rawQuantity?: string;
-  orderType?: string;
-  orderId?: string;
-}
+export type Preview = import('../../../packages/trade-planner/approval').TransactionPreview;
 export interface AccountData {
   analytics?:
     | null
@@ -179,4 +165,7 @@ export interface Evidence {
   order?: unknown;
   receipt: { status: string; blockNumber: string; gasUsed: string };
   events: unknown[];
+  transactionStatus?: 'confirmed' | 'reverted';
+  transactionTimestamp?: number;
+  indexerStatus?: string;
 }

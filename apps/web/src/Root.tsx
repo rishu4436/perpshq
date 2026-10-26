@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import Landing from './Landing';
+import { StorageRecoveryNotice, WorkspaceBoundary } from './components/workspace-boundary';
+import { saveStored } from './storage';
 const Workspace = lazy(() => import('./App'));
 export default function Root() {
   const isApp = location.pathname.startsWith('/app');
@@ -7,8 +9,7 @@ export default function Root() {
   useEffect(() => {
     if (!isApp) return;
     const id = new URLSearchParams(location.search).get('market');
-    if (id && /^0x[0-9a-fA-F]{40}$/.test(id))
-      localStorage.setItem('perpshq.market', JSON.stringify(id));
+    if (id && /^0x[0-9a-fA-F]{40}$/.test(id)) saveStored(localStorage, 'perpshq.market', id, '');
     setReady(true);
   }, [isApp]);
   const loading = (
@@ -20,7 +21,10 @@ export default function Root() {
   return isApp ? (
     ready ? (
       <Suspense fallback={loading}>
-        <Workspace />
+        <WorkspaceBoundary>
+          <StorageRecoveryNotice />
+          <Workspace />
+        </WorkspaceBoundary>
       </Suspense>
     ) : (
       loading

@@ -1,4 +1,7 @@
 import express from 'express';
+import { createAgentRouter } from './agents';
+import { createWorkspaceRouter } from './workspace';
+import { monitorWorkspace } from '../../../packages/workspace';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
@@ -73,7 +76,19 @@ app.use('/api', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
+app.use('/api/workspace/restore', express.json({ limit: '32mb' }));
 app.use(express.json({ limit: '32kb' }));
+const agentRoutes = createAgentRouter();
+app.use('/api/agents', agentRoutes.router);
+app.use('/api/workspace', createWorkspaceRouter(agentRoutes.store));
+const workspaceMonitor = setInterval(() => {
+  try {
+    if (agentRoutes.store) monitorWorkspace(agentRoutes.store);
+  } catch (e) {
+    console.error('Workspace monitor unavailable', message(e));
+  }
+}, 10000);
+workspaceMonitor.unref();
 const addr = z.string().regex(/^0x[0-9a-fA-F]{40}$/),
   hash = z.string().regex(/^0x[0-9a-fA-F]{64}$/),
   tf = z.enum(['1m', '5m', '15m', '1h', '4h', '1d']);
@@ -143,10 +158,22 @@ route('post', '/api/plan', async (req) => {
   return planTrade(p, await marketById(p.marketId));
 });
 route('post', '/api/preview', async (req) => {
-  const body = z.object({ input, account: addr }).strict().parse(req.body);
+  const body = z
+    .object({
+      input,
+      account: addr,
+      approvedData: z
+        .string()
+        .max(4096)
+        .regex(/^0x(?:[0-9a-fA-F]{2})+$/)
+        .optional(),
+    })
+    .strict()
+    .parse(req.body);
   return prepare(
     planTrade(body.input, await marketById(body.input.marketId)),
     body.account as `0x${string}`,
+    body.approvedData as `0x${string}` | undefined,
   );
 });
 route('post', '/api/cancel-preview', async (req) => {
@@ -206,9 +233,11 @@ const server = app.listen(port, '127.0.0.1', () =>
   ),
 );
 async function shutdown() {
+  clearInterval(workspaceMonitor);
   server.close();
   await sdk.close();
   db.close();
+  agentRoutes.close();
   process.exit(0);
 }
 process.on('SIGINT', shutdown);

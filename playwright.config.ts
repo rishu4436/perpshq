@@ -5,6 +5,8 @@ export default defineConfig({
   testDir: 'tests/e2e',
   timeout: 45000,
   fullyParallel: false,
+  // Live screens share a loopback API with a 150/minute request budget.
+  workers: process.env.LIVE_TESTS === '1' ? 1 : undefined,
   use: {
     baseURL,
     headless: true,
