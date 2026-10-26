@@ -29,6 +29,11 @@ export const analysis = analyze(h.candles, false);
 export const account = '0x1111111111111111111111111111111111111111',
   fakeHash = '0x' + 'a'.repeat(64);
 export async function mocks(page: Page, wrongChain = false, outcome = 'success') {
+  await page.route('**/*', (r) =>
+    ['127.0.0.1', 'localhost', '[::1]'].includes(new URL(r.request().url()).hostname)
+      ? r.continue()
+      : r.abort(),
+  );
   await page.addInitScript(
     ({ account, wrongChain, outcome }) => {
       const calls: string[] = [];

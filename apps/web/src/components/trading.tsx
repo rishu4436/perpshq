@@ -52,6 +52,8 @@ import {
 } from '../../../../packages/trade-planner/context';
 import type { MarketContextSnapshot, PlanningReference } from '../../../../packages/shared-types';
 import { Metric, Badge, Empty, ErrorNote, Coin, Skeleton } from './ui';
+import { ReadinessChecklist } from './readiness-checklist';
+import { recordActivity } from '../activity';
 
 export function Planner({
   market: m,
@@ -97,6 +99,30 @@ export function Planner({
     references: PlanningReference[];
   }>('perpshq.planner.context.' + m.id, { references: [] });
   const lock = useRef(false);
+  const activityFlow = useRef(crypto.randomUUID());
+  const previewGeneration = useRef('');
+  previewGeneration.current = JSON.stringify([input, wallet.address, wallet.chain]);
+  const readinessAccount = useQuery({
+    queryKey: ['account', wallet.address],
+    queryFn: () => api<AccountData>('/account/' + wallet.address),
+    enabled: !!wallet.address,
+    refetchInterval: 30000,
+  });
+  function activity(
+    state: Parameters<typeof recordActivity>[0]['state'],
+    detail: string,
+    hash?: string,
+  ) {
+    if (wallet.address)
+      recordActivity({
+        flowId: activityFlow.current,
+        account: wallet.address,
+        marketId: m.id,
+        state,
+        detail,
+        hash,
+      });
+  }
   const plan = useMemo(
     () => ({
       ...planTrade({ ...input, marketId: m.id }, m),
@@ -160,16 +186,33 @@ export function Planner({
   }
   async function validate() {
     if (!wallet.address || !wallet.correct) return;
+    const generation = previewGeneration.current;
+    activity('draft', 'Plan validation requested for ' + m.symbol);
     setBusy(true);
     setStatus('Validating');
     setError('');
     try {
       const p = await api<Preview>('/preview', { input, account: wallet.address });
+      if (generation !== previewGeneration.current) {
+        setStatus('Draft');
+        setError('Plan or wallet changed while validating. Validate the current plan again.');
+        return;
+      }
       assertPreview(p, wallet.address, m.poolAddress);
       setPreview(p);
       setConsent(false);
       setNow(Date.now());
       setStatus('Ready for confirmation');
+      activity(
+        'reviewed',
+        'Preview prepared for ' +
+          plan.quantity +
+          ' ' +
+          m.baseSymbol +
+          ' at bound ' +
+          p.rawPrice +
+          ' raw quote units',
+      );
     } catch (e) {
       setError(errorMessage(e));
       setStatus('Blocked');
@@ -191,13 +234,19 @@ export function Planner({
       });
       assertSameApproval(preview, fresh);
       setStatus('Awaiting wallet signature');
+      activity('signature', 'Exact preview revalidated; awaiting wallet response.');
       const hash = await wallet.send(fresh);
       setTx(hash);
       onTransaction({ hash, marketId: m.id, account: fresh.account, state: 'pending' });
       setStatus('Transaction pending');
+      activity('pending', 'Wallet returned a transaction hash.', hash);
       setPreview(undefined);
     } catch (e) {
       const msg = errorMessage(e);
+      activity(
+        e instanceof SubmissionFailure && e.outcome === 'unknown' ? 'unknown' : 'rejected',
+        msg.slice(0, 500),
+      );
       setError(msg);
       setStatus(
         e instanceof SubmissionFailure
@@ -228,6 +277,12 @@ export function Planner({
   );
   return (
     <>
+      <ReadinessChecklist
+        wallet={wallet}
+        account={readinessAccount.data}
+        market={m}
+        planErrors={incomplete ? ['Complete all plan fields.'] : plan.errors}
+      />
       <IntelligenceContext
         detail={detail}
         input={input}

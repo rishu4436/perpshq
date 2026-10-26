@@ -5,6 +5,8 @@ import { markPaper, advancePaper, paperAccount } from '../../../packages/agent-e
 import type { AgentConfig } from '../../../packages/agent-engine/config';
 import type { AgentObservation } from '../../../packages/agent-engine/types';
 import { AgentStore, type WorkerLease } from '../../../packages/agent-store';
+import { sharedAccount, monitorWorkspace } from '../../../packages/workspace';
+import { recordAction } from '../../../packages/agent-engine/runtime';
 export class AgentWorker {
   lease?: WorkerLease;
   stopped = false;
@@ -119,14 +121,26 @@ export class AgentWorker {
         const account =
           config.mode === 'ASSISTED' || (config.strategy === 'risk-guardian' && config.ownerAddress)
             ? observation.account
-            : paperAccount(config, ledger, now);
+            : sharedAccount(this.store, { ...record, ledger }, now);
         const runtime = {
           ...record.runtime,
           leaseValid: true,
           controlAvailable: true,
           unknownIntent: this.store.unresolved(config.id).length > 0,
         };
-        const decision = evaluateAgent(config, { ...observation, account }, runtime, now);
+        // A healthy observation breaks a streak of transient read failures. Unknown intents,
+        // failure cooldown and every market/account guard remain independently enforced.
+        const decision = evaluateAgent(
+          config,
+          { ...observation, account },
+          { ...runtime, consecutiveFailures: 0 },
+          now,
+        );
+        if (
+          !['DATA_UNAVAILABLE', 'PAUSE_REQUIRED'].includes(decision.type) &&
+          Object.keys(decision.indicators).length
+        )
+          runtime.consecutiveFailures = 0;
         const previousFill = ledger.lastFillAt;
         const simulation =
           config.mode === 'DRY_RUN'
@@ -138,11 +152,7 @@ export class AgentWorker {
           ledger.lastFillAt !== previousFill ||
           (config.mode === 'DRY_RUN' && decision.proposal && decision.risk.allowed)
         ) {
-          runtime.lastActionAt = now;
-          runtime.transactionTimes = [
-            ...runtime.transactionTimes.filter((t) => t > now - 3600000),
-            now,
-          ];
+          recordAction(runtime, now);
         }
         if (config.mode === 'DRY_RUN')
           decision.paperOutcome = {
@@ -156,8 +166,7 @@ export class AgentWorker {
         const candle = observation.detail.candles.at(-1)?.time ?? runtime.cursor;
         runtime.cursor = Math.max(runtime.cursor, candle);
         runtime.blockCursor = observation.block;
-        if (decision.type === 'PAUSE_REQUIRED' && config.mode === 'DRY_RUN')
-          runtime.status = 'paused';
+        if (decision.type === 'PAUSE_REQUIRED') runtime.status = 'paused';
         if (simulation.notes.length)
           decision.rationale += ' Paper model: ' + simulation.notes.join(' ');
         const updated = {
@@ -169,11 +178,20 @@ export class AgentWorker {
           lastEvaluationAt: now,
           lastError: decision.type === 'PAUSE_REQUIRED' ? decision.rationale : undefined,
         };
-        this.store.commitEvaluation(this.lease, config.revision, updated, decision, now);
+        this.store.commitEvaluation(this.lease, config.revision, updated, decision, now, {
+          ...observation,
+          account,
+        });
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Observation failed';
         if (!message.includes('Control/configuration changed'))
-          this.store.fail(this.lease, config.id, message, this.now());
+          this.store.fail(
+            this.lease,
+            config.id,
+            message,
+            this.now(),
+            record.runtime.controlGeneration ?? 0,
+          );
       } finally {
         if (timer) clearTimeout(timer);
         this.evaluating = false;
@@ -181,6 +199,7 @@ export class AgentWorker {
     }
     if (!this.stopped && this.lease && this.store.owns(this.lease, this.now()))
       this.store.heartbeat(this.lease, this.now(), 'idle');
+    monitorWorkspace(this.store, this.now());
   }
   shutdown() {
     this.stopped = true;

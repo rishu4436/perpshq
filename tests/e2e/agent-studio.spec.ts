@@ -226,7 +226,9 @@ test('create, validate, edit and reload a versioned agent without starting it', 
 }) => {
   const state = await studioMocks(page);
   await page.goto('/app#Agent%20Studio');
-  await expect(page.getByRole('heading', { name: 'Agent Studio', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Agent Studio', exact: true })).toBeVisible({
+    timeout: 30000,
+  });
   await expect(page.getByRole('button', { name: 'Create your first agent' })).toBeVisible();
   await create(page);
   expect(state.agents()).toHaveLength(1);

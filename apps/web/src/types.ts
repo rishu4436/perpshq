@@ -8,6 +8,7 @@ export type Page =
   | 'Portfolio Analytics'
   | 'Trade Journal'
   | 'Agent Studio'
+  | 'Recovery Center'
   | 'Arena Companion'
   | 'Settings & Help';
 

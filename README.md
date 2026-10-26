@@ -40,6 +40,7 @@ Use a normal browser with an injected EIP-1193 wallet when testing signing. The 
 - **Positions & Risk:** official margin health, indexed positions/orders, same-block live analytics, funding owed, alerts, transaction reconciliation and unknown-submission recovery.
 - **Portfolio:** actual fill/change/funding records, bounded accounting and an observed equity series. Missing lifetime statistics stay unavailable.
 - **Journal:** saved plans, thesis, tags, emotional context, review, transaction attachment and JSON export. Personal records persist in the browser.
+- **Recovery Center:** worker/run diagnostics, trading readiness, order activity, accounting with completeness checks, full local backups, archive/clone, saved decision replay and cost comparison, shared paper capital and durable alerts. See the [local implementation and validation notes](docs/LOCAL-IMPROVEMENTS-2026-10-26.md).
 - **Arena & Help:** personal preparation checklist, evidence counts, official Arena link, RPC/indexer diagnostics and source/limitation explanations.
 
 ## Agent Studio
@@ -83,7 +84,7 @@ Captured evidence: [initial SDK probes](docs/probe-results.json), [API checks](d
 
 The homepage at `/` introduces the product; the complete application is at `/app`. Direct preview links can pass a market ID and destination, for example `/app?market=<pool-address>#Trade%20Planner`. This handoff changes only the selected market.
 
-The **Perspective** design system now carries through all ten workspace screens: a custom framing-corner logo, numbered navigation, a connected Discover → Analyze → Plan → Monitor → Review workflow, larger data and form text, and consistent controls. See [design refinements and screen gallery](docs/DESIGN-REFINEMENTS.md).
+The **Perspective** design system now carries through all eleven workspace screens: a custom framing-corner logo, numbered navigation, a connected Discover → Analyze → Plan → Monitor → Review workflow, larger data and form text, and consistent controls. See [design refinements and screen gallery](docs/DESIGN-REFINEMENTS.md).
 
 Current screenshots: [desktop landing page](docs/screenshots/landing-desktop.png), [mobile landing page](docs/screenshots/landing-mobile.png), [desktop workspace](docs/screenshots/live-desktop.png) and [mobile workspace](docs/screenshots/live-mobile.png). These are captures of the actual local product. The source data reflects the capture time.
 

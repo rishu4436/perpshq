@@ -6,7 +6,10 @@ import { ledgerSchema, runtimeSchema } from './validation';
 import { agentConfigSchema, type AgentConfig } from '../agent-engine/config';
 import type { AgentDecision, AgentRuntime, AgentStatus, AgentAccount } from '../agent-engine/types';
 import { initialLedger, type PaperLedger } from '../agent-engine/paper';
+import type { AgentObservation } from '../agent-engine/types';
+import { initializeWorkspace, assertSharedCapital, saveReplay } from '../workspace';
 export interface AgentRecord {
+  archivedAt?: number;
   config: AgentConfig;
   runtime: AgentRuntime;
   ledger: PaperLedger;
@@ -81,6 +84,7 @@ export class AgentStore {
     const check = this.db.prepare('PRAGMA quick_check').get() as Record<string, string>;
     if (Object.values(check)[0] !== 'ok') throw new Error('Agent persistent state is corrupted');
     if (path !== ':memory:' && process.platform !== 'win32') chmodSync(path, 0o600);
+    initializeWorkspace(this);
   }
   transaction<T>(fn: () => T): T {
     this.db.exec('BEGIN IMMEDIATE');
@@ -97,6 +101,10 @@ export class AgentStore {
     const r = JSON.parse(text) as AgentRecord;
     r.config = agentConfigSchema.parse(r.config);
     r.runtime = runtimeSchema.parse(r.runtime);
+    r.runtime.controlGeneration ??= 0;
+    r.runtime.emergencyLatched =
+      r.runtime.emergencyLatched === true || r.runtime.status === 'emergency-stopped';
+    if (r.runtime.emergencyLatched) r.runtime.status = 'emergency-stopped';
     r.ledger = ledgerSchema.parse(r.ledger);
     if (
       r.ledger.position &&
@@ -105,10 +113,12 @@ export class AgentStore {
       throw new Error('Paper position and agent market do not match');
     return r;
   }
-  list(): AgentRecord[] {
+  list(includeArchived = false): AgentRecord[] {
     return (
       this.db.prepare('SELECT record FROM agents ORDER BY rowid DESC').all() as { record: string }[]
-    ).map((r) => this.parse(r.record));
+    )
+      .map((r) => this.parse(r.record))
+      .filter((r) => includeArchived || !r.archivedAt);
   }
   get(id: string): AgentRecord {
     const row = this.db.prepare('SELECT record FROM agents WHERE id=?').get(id) as
@@ -128,12 +138,14 @@ export class AgentStore {
         { record: string } | undefined;
       if (old) {
         const record = this.parse(old.record);
+        if (record.archivedAt) throw new Error('Restore this archived agent before editing');
         if (
           expectedRevision !== record.config.revision ||
           config.revision !== record.config.revision + 1
         )
           throw new Error('Configuration version conflict; reload before editing');
         if (
+          record.runtime.emergencyLatched ||
           [
             'simulating',
             'awaiting-authorization',
@@ -251,16 +263,24 @@ export class AgentStore {
           .get(requestId) as unknown as AgentCommand;
       }
       const a = this.get(agentId);
+      if (a.archivedAt) throw new Error('Restore this archived agent before issuing commands');
       if (a.config.revision !== revision) throw new Error('Configuration version conflict');
       if (['start', 'resume'].includes(type) && a.config.mode === 'AUTONOMOUS_TESTNET')
         throw new Error(
           'Autonomous activation is disabled in source. Dry-run and assisted observation never broadcast.',
         );
-      if (['start', 'resume'].includes(type) && a.runtime.status === 'emergency-stopped')
+      if (['start', 'resume'].includes(type) && a.runtime.emergencyLatched)
         throw new Error(
           'Emergency stop is latched; create a separately reviewed configuration to restart',
         );
       const cmd = { id: requestId, agentId, type, revision, requestedAt: now };
+      // Every requested transition invalidates work already in flight, even before acknowledgement.
+      a.runtime.controlGeneration = (a.runtime.controlGeneration ?? 0) + 1;
+      if (type === 'emergency-stop') {
+        a.runtime.emergencyLatched = true;
+        a.runtime.status = 'emergency-stopped';
+      }
+      this.write(a);
       this.db
         .prepare(
           'INSERT INTO agent_commands(id,agent_id,revision,kind,requested_at) VALUES(?,?,?,?,?)',
@@ -365,7 +385,9 @@ export class AgentStore {
       for (const cmd of pending) {
         const a = this.get(cmd.agent_id);
         let result = 'acknowledged';
-        if (a.config.revision !== cmd.revision) result = 'rejected: configuration changed';
+        if (a.runtime.emergencyLatched && cmd.kind !== 'emergency-stop')
+          result = 'rejected: emergency stop is latched';
+        else if (a.config.revision !== cmd.revision) result = 'rejected: configuration changed';
         else if (
           (cmd.kind === 'start' || cmd.kind === 'resume') &&
           (a.config.mode === 'AUTONOMOUS_TESTNET' ||
@@ -383,6 +405,8 @@ export class AgentStore {
                   : 'awaiting-authorization'
                 : 'paused';
           a.runtime.status = status;
+          a.runtime.emergencyLatched = cmd.kind === 'emergency-stop';
+          a.runtime.controlGeneration = (a.runtime.controlGeneration ?? 0) + 1;
           a.runtime.leaseValid = true;
           a.updatedAt = now;
           this.write(a);
@@ -407,6 +431,7 @@ export class AgentStore {
     record: AgentRecord,
     decision: AgentDecision,
     now: number,
+    observation?: AgentObservation,
   ) {
     this.transaction(() => {
       if (!this.owns(lease, now)) throw new Error('Worker lease lost; evaluation discarded');
@@ -418,6 +443,8 @@ export class AgentStore {
         .get(record.config.id);
       if (
         current.config.revision !== revision ||
+        (current.runtime.controlGeneration ?? 0) !== (record.runtime.controlGeneration ?? 0) ||
+        current.runtime.emergencyLatched ||
         !['simulating', 'awaiting-authorization'].includes(current.runtime.status) ||
         pause
       )
@@ -431,10 +458,12 @@ export class AgentStore {
       )
         throw new Error('Chain cursor cannot move backwards');
       this.parse(serialize(record));
+      assertSharedCapital(this, record, current, now);
       this.db
         .prepare('INSERT OR IGNORE INTO agent_decisions VALUES(?,?,?,?)')
         .run(decision.id, decision.agentId, decision.evaluatedAt, serialize(decision));
       this.write(record);
+      if (observation) saveReplay(this, current, observation, decision, now);
       this.event(record.config.id, decision.type, decision.rationale, now);
       this.db
         .prepare(
@@ -443,12 +472,18 @@ export class AgentStore {
         .run(record.config.id, record.config.id);
     });
   }
-  fail(lease: WorkerLease, id: string, message: string, now: number) {
+  fail(lease: WorkerLease, id: string, message: string, now: number, expectedGeneration?: number) {
     this.transaction(() => {
       if (!this.owns(lease, now)) return;
       const r = this.get(id);
+      if (
+        expectedGeneration !== undefined &&
+        (r.runtime.controlGeneration ?? 0) !== expectedGeneration
+      )
+        return;
       if (r.runtime.status === 'emergency-stopped' || r.runtime.status === 'paused') return;
       r.runtime.status = 'paused';
+      r.runtime.controlGeneration = (r.runtime.controlGeneration ?? 0) + 1;
       r.runtime.consecutiveFailures++;
       r.runtime.lastFailureAt = now;
       r.lastError = message;

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { JournalEntry, Plan, Market } from '../../../packages/shared-types';
+import { loadStored, saveStored } from './storage';
 export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (
@@ -20,6 +21,7 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
     method: body === undefined ? 'GET' : 'POST',
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal: AbortSignal.timeout(path === '/workspace/accounting' ? 120000 : 30000),
   });
   const data = await r.json();
   if (!r.ok) throw new Error(data.error ?? `Request failed (${r.status})`);
@@ -27,16 +29,12 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
 }
 export function useStored<T>(key: string, initial: T) {
   const [v, set] = useState<T>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(key) ?? 'null') ?? initial;
-    } catch {
-      return initial;
-    }
+    return loadStored(localStorage, key, initial);
   });
   function update(next: T | ((old: T) => T)) {
     set((old) => {
       const n = typeof next === 'function' ? (next as (old: T) => T)(old) : next;
-      localStorage.setItem(key, JSON.stringify(n));
+      saveStored(localStorage, key, n, initial);
       return n;
     });
   }

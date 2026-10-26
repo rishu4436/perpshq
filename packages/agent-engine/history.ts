@@ -7,6 +7,7 @@ import { agentConfigSchema, type AgentConfig } from './config';
 import { evaluateAgent } from './index';
 import { initialLedger, markPaper, paperAccount, applyPaperFill } from './paper';
 import type { AgentRuntime } from './types';
+import { recordAction } from './runtime';
 export interface HistoryPartition {
   name: 'exploration' | 'chronological-validation';
   from: number | null;
@@ -159,6 +160,7 @@ export function evaluateHistory(
       )
         continue;
       candidates++;
+      recordAction(runtime, at);
       runtime.lastSignalKey = decision.signalKey;
       // No future bar volume or high/low chooses a fill. Only next open and the prior known volume.
       if (next.time !== bar.time + intervals[tf] || bar.volume === undefined || bar.volume <= 0) {
@@ -188,16 +190,38 @@ export function evaluateHistory(
         unfilled++;
         continue;
       }
+      const candidate = structuredClone(ledger);
       applyPaperFill(
         config,
-        ledger,
+        candidate,
         p,
         quantity.toFixed(),
         price.toFixed(),
         decision.id,
         next.time * 1000,
       );
-      runtime.lastActionAt = next.time * 1000;
+      const marked = markPaper(
+        config,
+        candidate,
+        { ...d, market: { ...market, markPrice: Number(next.open), markUpdatedAt: at } },
+        at,
+      );
+      const after = paperAccount(config, marked, at);
+      if (
+        p.action === 'entry' &&
+        (new Decimal(after.totalExposure).gt(config.risk.maxTotalExposure) ||
+          new Decimal(after.marketExposure).gt(config.risk.maxMarketExposure) ||
+          new Decimal(after.equity).lt(
+            new Decimal(after.totalExposure).div(config.risk.leverage),
+          ) ||
+          new Decimal(after.sessionPnl!).lte(new Decimal(config.risk.maxSessionLoss).neg()) ||
+          new Decimal(after.dailyPnl!).lte(new Decimal(config.risk.maxDailyLoss).neg()) ||
+          quantity.mul(price).gt(config.risk.maxOrderNotional))
+      ) {
+        unfilled++;
+        continue;
+      }
+      ledger = marked;
       runtime.cursor = bar.time;
     }
     const last = start < end ? candles[Math.min(end - 1, candles.length - 1)] : undefined;

@@ -29,7 +29,7 @@ async function main() {
     return;
   }
   const store = new AgentStore(env.AGENT_STORE_PATH),
-    worker = new AgentWorker(store, observeAgent, {
+    worker = new AgentWorker(store, (c) => observeAgent(c, store.get(c.id).createdAt), {
       workerId: env.AGENT_WORKER_ID,
       ttl: env.AGENT_LEASE_TTL_MS,
       dataTimeoutMs: env.AGENT_DATA_TIMEOUT_MS,

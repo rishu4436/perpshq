@@ -111,6 +111,8 @@ export const ledgerSchema = z
   });
 export const runtimeSchema = z
   .object({
+    controlGeneration: timestamp.optional(),
+    emergencyLatched: z.boolean().optional(),
     lastSignalKey: z.string().max(1000).optional(),
     lastActionAt: timestamp.optional(),
     lastFailureAt: timestamp.optional(),

@@ -11,6 +11,7 @@ import { verifyExposure } from '../../packages/dreamdex-adapter/exposure';
 import { account, sdk, rpc } from '../../packages/dreamdex-adapter';
 import { assessRisk, sizeProposal } from '../../packages/agent-risk';
 import probe from '../../docs/probe-results.json';
+import * as snapshots from '../../packages/dreamdex-adapter/snapshot';
 const owner = ('0x' + '1'.repeat(40)) as Address;
 const market = agentFixture().detail.market;
 function fixture() {
@@ -136,6 +137,10 @@ describe('authoritative current exposure completeness', () => {
 });
 describe('account adapter does not substitute bounded indexed history', () => {
   beforeEach(() => {
+    vi.spyOn(snapshots, 'pinnedSnapshot').mockResolvedValue({
+      margin: fixture().margin,
+      analytics: [],
+    });
     vi.spyOn(sdk.client, 'listPerpMarkets').mockResolvedValue(
       probe.markets.data as unknown as PerpMarket[],
     );

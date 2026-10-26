@@ -1473,6 +1473,7 @@
   line-height: 1.7;
 }
 .skip-link {
+  clip-path: inset(50%);
   position: fixed;
   left: 25px;
   top: -100px;
@@ -1483,6 +1484,7 @@
   border-radius: 7px;
 }
 .skip-link:focus {
+  clip-path: none;
   top: 15px;
 }
 .navigation-backdrop {

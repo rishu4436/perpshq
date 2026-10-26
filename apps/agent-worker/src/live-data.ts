@@ -4,13 +4,17 @@ import { readPermissions } from '../../../packages/agent-execution';
 import { fromRaw } from '../../../packages/risk-engine';
 import type { AgentConfig } from '../../../packages/agent-engine/config';
 import type { AgentObservation, AgentAccount } from '../../../packages/agent-engine/types';
+import { accountPerformance } from '../../../packages/dreamdex-adapter/accounting';
 export async function verifyWorkerNetwork() {
   if ((await rpc.getChainId()) !== 50383)
     throw new Error('Agent worker requires Hideki chain 50383');
   if (!(await markets()).length)
     throw new Error('No supported Hideki perpetual markets discovered');
 }
-export async function observeAgent(c: AgentConfig): Promise<AgentObservation> {
+export async function observeAgent(
+  c: AgentConfig,
+  sessionStartedAt?: number,
+): Promise<AgentObservation> {
   const [chainId, block, primary, freshness] = await Promise.all([
     rpc.getChainId(),
     rpc.getBlockNumber(),
@@ -30,6 +34,38 @@ export async function observeAgent(c: AgentConfig): Promise<AgentObservation> {
       });
     const permissions = c.operatorAddress ? await readPermissions(c, m) : null;
     const errors = [...a.errors];
+    let sessionPnl: string | null = null,
+      dailyPnl: string | null = null,
+      historyComplete = false;
+    if (sessionStartedAt !== undefined && a.margin && a.exposure.complete) {
+      try {
+        const day = Math.floor(Date.now() / 86400000) * 86400000;
+        const session = await accountPerformance(
+          c.ownerAddress as `0x${string}`,
+          c.marketId,
+          sessionStartedAt,
+          a.margin.asOfBlock,
+        );
+        const daily =
+          day === sessionStartedAt
+            ? session
+            : await accountPerformance(
+                c.ownerAddress as `0x${string}`,
+                c.marketId,
+                day,
+                a.margin.asOfBlock,
+              );
+        historyComplete = session.complete && daily.complete;
+        if (historyComplete) {
+          sessionPnl = session.netPnl;
+          dailyPnl = daily.netPnl;
+        } else errors.push(...session.reasons, ...daily.reasons);
+      } catch (e) {
+        errors.push(
+          'Account accounting unavailable: ' + (e instanceof Error ? e.message : 'read failed'),
+        );
+      }
+    }
     if (!a.exposure.complete || !a.openOrders || !a.analytics || !a.margin)
       errors.push('Incomplete account/position/order/margin observation');
     const allMarkets = await markets();
@@ -111,9 +147,9 @@ export async function observeAgent(c: AgentConfig): Promise<AgentObservation> {
         constraints === 0
           ? (m.maxLeverage ?? null)
           : Math.min(constraints, m.maxLeverage ?? constraints),
-      sessionPnl: null,
-      dailyPnl: null,
-      historyComplete: false,
+      sessionPnl,
+      dailyPnl,
+      historyComplete,
       exposureComplete: a.exposure.complete,
       gasSTT: permissions?.gasSTT ?? null,
       permissions: permissions

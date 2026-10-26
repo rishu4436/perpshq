@@ -60,6 +60,8 @@ export interface AgentAccount {
   errors: string[];
 }
 export interface AgentRuntime {
+  controlGeneration?: number;
+  emergencyLatched?: boolean;
   lastSignalKey?: string;
   lastActionAt?: number;
   lastFailureAt?: number;

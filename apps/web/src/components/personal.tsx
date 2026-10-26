@@ -244,6 +244,9 @@ export function Portfolio({
                   establish lifetime performance or a valid closed-trade win rate. Deposits and
                   withdrawals also affect equity.
                 </p>
+                <a className="secondary" href="#Recovery%20Center">
+                  Open Recovery Center for verified range accounting
+                </a>
               </div>
             </section>
           </div>

@@ -78,6 +78,9 @@ import { useWallet } from './wallet';
 import { Chart } from './Chart';
 import { useAlertMonitoring } from './useAlertMonitoring';
 const AgentStudio = lazy(() => import('./components/agent-studio'));
+const RecoveryCenter = lazy(() => import('./components/recovery-center'));
+import { recordActivity, flushActivity, activityFlowForHash } from './activity';
+import { parsePage } from './storage';
 import { PerspectiveMark } from './components/identity';
 
 const navigation: [Page, typeof Activity][] = [
@@ -89,6 +92,7 @@ const navigation: [Page, typeof Activity][] = [
   ['Portfolio Analytics', Activity],
   ['Trade Journal', BookOpen],
   ['Agent Studio', Bot],
+  ['Recovery Center', Shield],
   ['Arena Companion', Trophy],
   ['Settings & Help', Settings],
 ];
@@ -110,10 +114,19 @@ const presets = [
 ];
 
 function App() {
+  useEffect(() => {
+    void flushActivity();
+    const timer = setInterval(() => void flushActivity(), 15000);
+    return () => clearInterval(timer);
+  }, []);
   const qc = useQueryClient(),
     wallet = useWallet();
   const [page, setPage] = useState<Page>(
-      () => (decodeURIComponent(location.hash.slice(1)) as Page) || 'Command Center',
+      () =>
+        parsePage(
+          location.hash,
+          navigation.map((v) => v[0]),
+        ) as Page,
     ),
     [mobile, setMobile] = useState(false),
     [selected, setSelected] = useStored('perpshq.market', ''),
@@ -243,7 +256,10 @@ function App() {
   }
   useEffect(() => {
     const h = () => {
-      const p = decodeURIComponent(location.hash.slice(1)) as Page;
+      const p = parsePage(
+        location.hash,
+        navigation.map((v) => v[0]),
+      ) as Page;
       setPage(navigation.some((v) => v[0] === p) ? p : 'Command Center');
     };
     window.addEventListener('hashchange', h);
@@ -303,6 +319,15 @@ function App() {
   }
   function addJournal(p?: Plan, hash?: string) {
     if (!m) return;
+    if (accountAddress)
+      recordActivity({
+        flowId: activityFlowForHash(hash),
+        account: accountAddress,
+        marketId: p?.input.marketId ?? m.id,
+        hash,
+        state: 'journaled',
+        detail: 'Trade context saved to the local journal.',
+      });
     setJournal((v) => [
       journalEntry(ms.find((m) => m.id === p?.input.marketId) ?? m, p, accountAddress, hash),
       ...v,
@@ -310,6 +335,26 @@ function App() {
     go('Trade Journal');
   }
   function updateEvidence(e: Evidence) {
+    if (
+      [
+        'confirmed',
+        'reverted',
+        'syncing',
+        'resting',
+        'partial',
+        'filled',
+        'cancelled',
+        'unknown',
+      ].includes(e.state)
+    )
+      recordActivity({
+        flowId: activityFlowForHash(e.hash),
+        account: e.account,
+        marketId: e.pool,
+        hash: e.hash,
+        state: e.state as 'confirmed',
+        detail: 'Order evidence observed; receipt ' + e.receipt?.status,
+      });
     wallet.reconcile(e);
     setTransactions((v) =>
       v.some((t) => t.hash === e.hash)
@@ -689,23 +734,25 @@ function App() {
         </a>
         <div className="brand-caption">PERPETUALS, IN PERSPECTIVE</div>
         <div className="workspace-label">
-          YOUR WORKSPACE <span>01 — 10</span>
+          YOUR WORKSPACE <span>01 — {String(navigation.length).padStart(2, '0')}</span>
         </div>
         <nav aria-label="Main workspace">
-          {navigation.slice(0, 8).map(([p, Icon], index) => (
-            <button
-              key={p}
-              onClick={() => go(p)}
-              aria-current={page === p ? 'page' : undefined}
-              className={page === p ? 'nav-item active' : 'nav-item'}
-            >
-              <Icon size={17} />
-              <span>{p}</span>
-              <span className="nav-index" aria-hidden="true">
-                {String(index + 1).padStart(2, '0')}
-              </span>
-            </button>
-          ))}
+          {navigation
+            .filter(([p]) => p !== 'Arena Companion' && p !== 'Settings & Help')
+            .map(([p, Icon], index) => (
+              <button
+                key={p}
+                onClick={() => go(p)}
+                aria-current={page === p ? 'page' : undefined}
+                className={page === p ? 'nav-item active' : 'nav-item'}
+              >
+                <Icon size={17} />
+                <span>{p}</span>
+                <span className="nav-index" aria-hidden="true">
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+              </button>
+            ))}
         </nav>
         <div className="nav-divider" />
         <button
@@ -1275,6 +1322,16 @@ function App() {
           {page === 'Agent Studio' && (
             <Suspense fallback={<Skeleton />}>
               <AgentStudio markets={ms} />
+            </Suspense>
+          )}
+          {page === 'Recovery Center' && (
+            <Suspense fallback={<Skeleton />}>
+              <RecoveryCenter
+                wallet={wallet}
+                account={account}
+                market={liveMarket}
+                detail={detail}
+              />
             </Suspense>
           )}
           {page === 'Arena Companion' && (

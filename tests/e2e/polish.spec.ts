@@ -22,7 +22,9 @@ test('workflow navigation and keyboard access preserve the current screen', asyn
   await expect(page.getByText(/\[DecimalError\]/)).toHaveCount(0);
   const before = page.url();
   const skip = page.getByRole('link', { name: 'Skip to workspace' });
+  await expect(skip).toHaveCSS('clip-path', 'inset(50%)');
   await skip.focus();
+  await expect(skip).toHaveCSS('clip-path', 'none');
   await page.keyboard.press('Enter');
   await expect(page.locator('#workspace-content')).toBeFocused();
   expect(page.url()).toBe(before);

@@ -32,6 +32,7 @@ import { analyze } from '../opportunity-scoring';
 import Decimal from 'decimal.js';
 import { orderOutcome } from '../trade-planner/evidence';
 import { verifyExposure } from './exposure';
+import { pinnedSnapshot } from './snapshot';
 
 export const sdk = new SomniaMarkets({
   chain: hidekiTestnet,
@@ -276,8 +277,9 @@ export async function account(address: Address) {
   const ms = await markets();
   if (!ms.length) throw new Error('No perp markets discovered');
   const m = ms[0];
+  const snapshot = pinnedSnapshot(rpc, m.marginBank, address);
   const [margin, positions, orders, fills, changes, gas, voucher] = await Promise.allSettled([
-    sdk.client.getMarginAccount(m.marginBank, address),
+    snapshot.then((v) => v.margin),
     sdk.client.listPerpPositions(address),
     sdk.client.getOrders(address, { markets: ms.map((v) => v.id), limit: 100 }),
     sdk.client.getUserFills(address, { markets: ms.map((v) => v.id), limit: 100 }),
@@ -287,7 +289,7 @@ export async function account(address: Address) {
   ]);
   const value = <T>(r: PromiseSettledResult<T>) => (r.status === 'fulfilled' ? r.value : null);
   const [analytics, payments] = await Promise.allSettled([
-    sdk.client.listPerpPositionAnalytics({ marginBank: m.marginBank, account: address }),
+    snapshot.then((v) => v.analytics),
     sdk.client.getFundingPayments(address, { limit: 100 }),
   ]);
   // Historical rows remain bounded for display. Risk uses every resting order at the bank snapshot block.

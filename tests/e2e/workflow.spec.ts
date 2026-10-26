@@ -1,5 +1,28 @@
 import { test, expect } from '@playwright/test';
 import { mocks, nav, fillPlan } from './fixtures';
+test('discards a delayed preview after the reviewed form changes', async ({ page }) => {
+  await mocks(page);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/api/preview', async (route) => {
+    await held;
+    await route.fallback();
+  });
+  await page.goto('/app#Trade%20Planner');
+  await fillPlan(page);
+  await page.getByRole('button', { name: 'Connect wallet to validate' }).click();
+  const request = page.waitForRequest('**/api/preview');
+  await page.getByRole('button', { name: 'Validate on testnet', exact: true }).click();
+  await request;
+  await page.getByRole('textbox', { name: 'Stop-loss level', exact: true }).fill('2800');
+  release();
+  await expect(
+    page.getByText('Plan or wallet changed while validating. Validate the current plan again.'),
+  ).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Confirm testnet order' })).toHaveCount(0);
+});
 test('connected discovery → scanner → cockpit → saved plan → journal', async ({ page }) => {
   await mocks(page);
   await page.goto('/app');
@@ -69,6 +92,7 @@ test('every navigation destination renders and mobile has no page overflow', asy
     'Positions & Risk',
     'Portfolio Analytics',
     'Trade Journal',
+    'Recovery Center',
     'Arena Companion',
     'Settings & Help',
   ]) {

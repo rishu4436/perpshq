@@ -244,7 +244,8 @@ export function createAgentRouter() {
               })(),
           }
         : b.action;
-    const observation = b.action.kind === 'place' ? await observeAgent(a.config) : undefined,
+    const observation =
+        b.action.kind === 'place' ? await observeAgent(a.config, a.createdAt) : undefined,
       health = s.health();
     const runtime = {
       ...a.runtime,
@@ -261,5 +262,5 @@ export function createAgentRouter() {
       approvedData: b.approvedData as `0x${string}` | undefined,
     });
   });
-  return { router, close: () => store?.close() };
+  return { router, store, close: () => store?.close() };
 }
