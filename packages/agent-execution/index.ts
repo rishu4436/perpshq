@@ -180,6 +180,10 @@ export async function prepareOperatorAction(
     approvedData?: Hex;
   } = {},
 ): Promise<OperatorPreview> {
+  if (config.execution.signer === 'owner-wallet')
+    throw new Error(
+      'Owner-wallet configurations must use the owner review flow, not delegated execution',
+    );
   const reader = options.reader ?? rpc,
     m = options.market ?? (await marketById(config.marketId)),
     permissions = await readPermissions(config, m, reader);

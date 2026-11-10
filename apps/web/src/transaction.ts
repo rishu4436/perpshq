@@ -68,6 +68,7 @@ export async function requestTransaction(
   onChange: (s: Submission | undefined) => void,
   revision: () => number = () => 0,
   timeoutMs = 120000,
+  onRejected?: () => Promise<void>,
 ) {
   const version = revision();
   const accounts = (await p.request({ method: 'eth_accounts' })) as string[];
@@ -144,9 +145,12 @@ export async function requestTransaction(
           update({ ...intent, hash });
           return hash;
         },
-        (error) => {
+        async (error) => {
           if (error instanceof SubmissionFailure) throw error;
           if ((error as { code?: number })?.code === 4001) {
+            // This handler also runs after the caller timed out. Persist the linked
+            // strategy rejection before releasing the generic wallet intent.
+            await onRejected?.();
             update(undefined);
             throw new SubmissionFailure('User rejected the wallet signature.', 'rejected');
           }

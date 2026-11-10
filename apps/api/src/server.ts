@@ -1,4 +1,10 @@
 import express from 'express';
+import { hostingPolicy, localControlGuard } from './hosting';
+import { hostedStrategyRouter } from './hosted-strategy';
+import { postgresStore } from './hosted-store';
+import { collateralRouter } from './collateral';
+import { closingPositionFingerprint } from './close-preview';
+import { ownerStrategyRouter } from './owner-strategy';
 import { createAgentRouter } from './agents';
 import { createWorkspaceRouter } from './workspace';
 import { monitorWorkspace } from '../../../packages/workspace';
@@ -27,9 +33,18 @@ import { NETWORK, type Timeframe } from '../../../packages/shared-types';
 
 const app = express(),
   port = Number(process.env.PORT ?? 3000),
-  production = process.argv.includes('--production');
-mkdirSync('data', { recursive: true });
-const db = new DatabaseSync('data/perpshq.sqlite');
+  production = process.argv.includes('--production') || !!process.env.VERCEL;
+const hosting = hostingPolicy(
+  process.env.PUBLIC_ORIGIN ??
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : undefined),
+  port,
+  process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : [],
+);
+if (process.env.VERCEL && !hosting.hosted) throw new Error('PUBLIC_ORIGIN is required for hosting');
+if (!hosting.hosted) mkdirSync('data', { recursive: true });
+const db = new DatabaseSync(hosting.hosted ? ':memory:' : 'data/perpshq.sqlite');
 db.exec(
   'PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS snapshots (key TEXT PRIMARY KEY, value TEXT NOT NULL, updatedAt INTEGER NOT NULL);',
 );
@@ -42,6 +57,7 @@ const persist = (key: string, value: unknown) =>
     )
     .run(key, json(value), Date.now());
 app.disable('x-powered-by');
+if (hosting.hosted) app.set('trust proxy', 1);
 app.use(
   helmet({
     contentSecurityPolicy: production
@@ -62,28 +78,42 @@ app.use(
   '/api',
   rateLimit({ windowMs: 60000, limit: 150, standardHeaders: 'draft-8', legacyHeaders: false }),
 );
-app.use('/api', (req, res, next) => {
-  const host = req.hostname;
-  if (!['127.0.0.1', 'localhost', '[::1]'].includes(host)) {
-    res.status(403).json({ error: 'This local workspace only accepts loopback hosts.' });
-    return;
-  }
-  const origin = req.get('origin');
-  if (origin && !['http://127.0.0.1:' + port, 'http://localhost:' + port].includes(origin)) {
-    res.status(403).json({ error: 'Cross-origin API access is disabled.' });
-    return;
-  }
-  res.setHeader('Cache-Control', 'no-store');
-  next();
-});
-app.use('/api/workspace/restore', express.json({ limit: '32mb' }));
+app.use('/api', hosting.guard);
+if (!hosting.hosted) app.use('/api/workspace/restore', express.json({ limit: '32mb' }));
 app.use(express.json({ limit: '32kb' }));
-const agentRoutes = createAgentRouter();
-app.use('/api/agents', agentRoutes.router);
-app.use('/api/workspace', createWorkspaceRouter(agentRoutes.store));
+if (hosting.hosted) {
+  const connection = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
+  if (connection) app.use('/api/owner-strategy', hostedStrategyRouter(postgresStore(connection)));
+  else
+    app.use('/api/owner-strategy', (_req, res) => {
+      res.status(503).json({ error: 'Hosted strategy storage is not configured' });
+    });
+  app.get('/api/agents', (_req, res) =>
+    res.json({
+      agents: [],
+      worker: null,
+      connected: false,
+      broadcastEnabled: false,
+      remoteControlAvailable: false,
+      publicHosted: true,
+      hostedExecution: !!connection,
+      controlPlane: 'local-only',
+    }),
+  );
+  app.get('/api/workspace', (_req, res) => res.json({ publicHosted: true }));
+  app.use(['/api/agents', '/api/workspace'], localControlGuard);
+}
+app.use('/api/collateral', collateralRouter());
+const ownerRoutes = hosting.hosted ? undefined : ownerStrategyRouter();
+if (ownerRoutes) app.use('/api/owner-strategy', ownerRoutes);
+const agentRoutes = hosting.hosted ? undefined : createAgentRouter();
+if (agentRoutes) {
+  app.use('/api/agents', agentRoutes.router);
+  app.use('/api/workspace', createWorkspaceRouter(agentRoutes.store));
+}
 const workspaceMonitor = setInterval(() => {
   try {
-    if (agentRoutes.store) monitorWorkspace(agentRoutes.store);
+    if (agentRoutes?.store) monitorWorkspace(agentRoutes.store);
   } catch (e) {
     console.error('Workspace monitor unavailable', message(e));
   }
@@ -109,6 +139,7 @@ const input = z
     leverage: numeric,
     slippageBps: numeric,
     quantity: numeric.optional(),
+    closePositionOnly: z.boolean().optional(),
   })
   .strict();
 type Handler = (req: express.Request, res: express.Response) => Promise<unknown>;
@@ -131,6 +162,7 @@ route('get', '/api/health', async () => ({
   name: 'PerpsHQ',
   chainId: NETWORK.id,
   mode: 'read-only API / browser signing',
+  publicHosted: hosting.hosted,
   now: Date.now(),
 }));
 route('get', '/api/markets', async () => {
@@ -170,11 +202,18 @@ route('post', '/api/preview', async (req) => {
     })
     .strict()
     .parse(req.body);
-  return prepare(
-    planTrade(body.input, await marketById(body.input.marketId)),
-    body.account as `0x${string}`,
-    body.approvedData as `0x${string}` | undefined,
-  );
+  const plan = planTrade(body.input, await marketById(body.input.marketId));
+  const closingPosition = body.input.closePositionOnly
+    ? closingPositionFingerprint(plan, await account(body.account as `0x${string}`))
+    : undefined;
+  return {
+    ...(await prepare(
+      plan,
+      body.account as `0x${string}`,
+      body.approvedData as `0x${string}` | undefined,
+    )),
+    ...(closingPosition ? { closingPosition } : {}),
+  };
 });
 route('post', '/api/cancel-preview', async (req) => {
   const b = z
@@ -227,18 +266,22 @@ if (production) {
   });
   app.use(vite.middlewares);
 }
-const server = app.listen(port, '127.0.0.1', () =>
-  console.log(
-    `PerpsHQ ready at http://127.0.0.1:${port} · Hideki 50383 · ${production ? 'production' : 'development'}`,
-  ),
-);
+const server = process.env.VERCEL
+  ? undefined
+  : app.listen(port, hosting.hosted ? '0.0.0.0' : '127.0.0.1', () =>
+      console.log(
+        `PerpsHQ ready at http://127.0.0.1:${port} · Hideki 50383 · ${production ? 'production' : 'development'}`,
+      ),
+    );
 async function shutdown() {
   clearInterval(workspaceMonitor);
-  server.close();
+  server?.close();
   await sdk.close();
   db.close();
-  agentRoutes.close();
+  agentRoutes?.close();
+  ownerRoutes?.close();
   process.exit(0);
 }
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+export default app;

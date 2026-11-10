@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>PerpsHQ · Testnet collateral</title>
+    <style>
+      body {
+        font: 17px system-ui;
+        background: #10160e;
+        color: #edf4e5;
+        margin: 8vh auto;
+        max-width: 800px;
+        padding: 24px;
+        line-height: 1.6;
+      }
+      button,
+      a {
+        padding: 12px;
+        border-radius: 8px;
+        color: #16220d;
+        background: #d3fa84;
+        border: 0;
+        margin: 6px;
+        cursor: pointer;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: #1d2817;
+        padding: 20px;
+        border-radius: 12px;
+      }
+      button:disabled {
+        opacity: 0.4;
+      }
+      label {
+        display: block;
+        margin: 20px 0;
+      }
+      #message {
+        color: #dfd69f;
+      }
+    </style>
+  </head>
+  <body>
+    <p>PERPSHQ / HIDEKI 50383</p>
+    <h1>Fund testnet trading collateral</h1>
+    <p>
+      This claims the protocol's one-time USDso credit into your own perps account. It sends zero
+      STT to the contract; network gas is charged. It does not place an order or approve token
+      spending.
+    </p>
+    <button id="preview">Review collateral claim</button>
+    <button id="deposit">Review 15 USDso margin deposit</button>
+    <p>
+      The deposit flow first approves exactly 15 USDso to the discovered perps bank if needed, then
+      deposits 15 USDso in a second transaction. Check each receipt before continuing. No unlimited
+      approval.
+    </p>
+    <pre id="details">
+Connect the same wallet used in PerpsHQ. The SDK will check eligibility and simulate the claim.</pre>
+    <label
+      ><input type="checkbox" id="consent" /> I reviewed this account, network, contract, credit and
+      gas estimate.</label
+    >
+    <button id="send" disabled>Request wallet approval</button
+    ><button id="check">Check funding receipt</button>
+    <p id="message" role="status"></p>
+    <p><a href="/app#Trade%20Planner">Return to Trade Planner</a></p>
+    <script type="module" src="/testnet-collateral.js"></script>
+  </body>
+</html>

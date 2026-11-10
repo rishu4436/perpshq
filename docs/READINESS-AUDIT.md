@@ -1,5 +1,7 @@
 # PerpsHQ readiness audit — 20 October 2026
 
+> Historical/local implementation context. The [10 November release report](RELEASE-2026-11-10.md) is the current deployment, execution and submission status.
+
 ## A. Executive summary
 
 The existing product, visual identity, navigation, SDK integration and personal storage were retained. The audit hardens the unsigned preparation/signing boundary, unknown-outcome recovery and cancellation; removes stale directional analysis; evaluates market/account alerts independently; connects analysis to explicit draft references and preserved journal snapshots; and preserves chart interaction during refresh.

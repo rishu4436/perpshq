@@ -935,6 +935,9 @@ export default function Landing() {
           </div>
           <div className="lp-footer-links">
             <a href="#platform">The platform</a>
+            <a href="/release.html">
+              Demo & reviewer kit <ArrowUpRight size={12} />
+            </a>
             <a href={workspace()}>
               Workspace
               <ArrowUpRight size={12} />

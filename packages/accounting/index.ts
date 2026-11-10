@@ -27,7 +27,7 @@ export interface AccountingReport {
   realizedPnl: string;
   reasons: string[];
   movements: AccountMovement[];
-  fillCount: number;
+  fillCount: number | null;
   generatedAt: number;
 }
 /** Equity already includes fees/funding: display their breakdown without deducting twice. */

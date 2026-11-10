@@ -125,6 +125,7 @@ describe('unsigned official-SDK preparation with mocked chain reads; never broad
   });
   it('prepares only an owned, open cancellation with enough gas on Hideki', async () => {
     const p = await prepareCancel(m.id, '1', account);
+    expect(BigInt(p.estimatedGasUnits)).toBeGreaterThan(0n);
     expect(decodeFunctionData({ abi: perpPoolWriteAbi, data: p.data })).toMatchObject({
       functionName: 'cancelOrder',
       args: [1n],

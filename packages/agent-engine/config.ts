@@ -89,6 +89,7 @@ export const agentConfigSchema = z
       .strict(),
     execution: z
       .object({
+        signer: z.enum(['operator', 'owner-wallet']).optional(),
         orderType: z.enum(['IOC', 'LIMIT']),
         limitOffsetBps: z.number().int().min(0).max(500),
         stopLossPct: z.number().positive().max(25),
@@ -145,7 +146,10 @@ export const agentConfigSchema = z
       c.ownerAddress.toLowerCase() === c.operatorAddress.toLowerCase()
     )
       fail(['operatorAddress'], 'Owner and dedicated operator must differ');
-    if (c.mode !== 'DRY_RUN' && (!c.ownerAddress || !c.operatorAddress))
+    if (
+      c.mode !== 'DRY_RUN' &&
+      (!c.ownerAddress || (c.execution.signer !== 'owner-wallet' && !c.operatorAddress))
+    )
       fail(
         ['ownerAddress'],
         'Owner and dedicated operator addresses are required for assisted/disabled autonomous mode',

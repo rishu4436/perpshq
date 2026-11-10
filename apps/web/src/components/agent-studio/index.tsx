@@ -31,12 +31,16 @@ import { api, download, errorMessage, fmt, short } from '../../lib';
 import { Badge, Empty, ErrorNote, Metric, Skeleton } from '../ui';
 import { AgentBuilder, StudioDialog, strategyNames } from './builder';
 import './studio.css';
+import { OwnerExecution } from './owner-execution';
+import type { useWallet } from '../../wallet';
 interface StudioAgent extends AgentRecord {
   displayStatus: AgentStatus;
   pendingCommands: AgentCommand[];
   lastDecision: AgentDecision | null;
 }
 interface StudioState {
+  publicHosted?: boolean;
+  hostedExecution?: boolean;
   agents: StudioAgent[];
   worker: { workerId: string; at: number; state: string; fence: number } | null;
   connected: boolean;
@@ -53,7 +57,13 @@ interface DetailState {
 }
 const stamp = (v?: number | null) => (v ? new Date(v).toLocaleString() : 'Not observed');
 const statusLabel = (v: string) => v.replaceAll('-', ' ').replace(/^\w/, (s) => s.toUpperCase());
-export default function AgentStudio({ markets }: { markets: Market[] }) {
+export default function AgentStudio({
+  markets,
+  wallet,
+}: {
+  markets: Market[];
+  wallet: ReturnType<typeof useWallet>;
+}) {
   const qc = useQueryClient();
   const [selected, setSelected] = useState(''),
     [builder, setBuilder] = useState<AgentConfig>(),
@@ -142,8 +152,82 @@ export default function AgentStudio({ markets }: { markets: Market[] }) {
       .filter((a) => ['simulating', 'awaiting-authorization'].includes(a.displayStatus))
       .map((a) => a.config.marketId),
   ).size;
+  if (state?.publicHosted)
+    return (
+      <div className="agent-studio">
+        <section className="studio-intro">
+          <div>
+            <div className="studio-kicker">
+              <Bot size={16} /> AGENT STUDIO
+            </div>
+            <h2>
+              Four strategies.
+              <br />
+              <em>Visible reasoning.</em>
+            </h2>
+            <p>
+              Explore the strategy framework. Each entry requires completed market evidence and
+              mandatory risk checks.
+            </p>
+          </div>
+          <div className="studio-boundary">
+            <LockKeyhole size={22} />
+            <strong>Execute through your connected wallet</strong>
+            <p>
+              Sign in with your wallet, save a strategy, inspect its live decision and approve an
+              eligible trade. Requests and recovery are stored privately for that wallet. Autonomous
+              worker control stays local.
+            </p>
+            <a
+              className="secondary"
+              href="https://github.com/rishu4436/perpshq"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Source & local setup ↗
+            </a>
+          </div>
+        </section>
+        {state.hostedExecution && <OwnerExecution wallet={wallet} markets={markets} hosted />}
+        <div className="metric-grid">
+          {[
+            [
+              'Trend',
+              'EMA alignment, momentum and agreement across completed timeframes.',
+              'Verified testnet entry',
+            ],
+            [
+              'Breakout',
+              'A confirmed support/resistance crossing with volume and liquidity confirmation.',
+              'Live entry not yet verified',
+            ],
+            [
+              'Mean Reversion',
+              'RSI and Bollinger extremes, moving-average distance and price recovery.',
+              'Live entry not yet verified',
+            ],
+            [
+              'Risk Guardian',
+              'Risk policy checks and owned resting-order cancellation. No new entries.',
+              'Verified testnet cancellation',
+            ],
+          ].map(([name, description, evidence]) => (
+            <section className="studio-boundary" key={name}>
+              <h3>{name}</h3>
+              <p>{description}</p>
+              <Badge>{evidence}</Badge>
+            </section>
+          ))}
+        </div>
+        <p>
+          Autonomous broadcasting is disabled. Planning stops are not armed on-chain. Testnet
+          execution does not establish profitability.
+        </p>
+      </div>
+    );
   return (
     <div className="agent-studio">
+      <OwnerExecution wallet={wallet} markets={markets} />
       <section className="studio-intro">
         <div>
           <div className="studio-kicker">
@@ -163,10 +247,10 @@ export default function AgentStudio({ markets }: { markets: Market[] }) {
           <span className="studio-lock-icon">
             <LockKeyhole size={22} />
           </span>
-          <strong>Live execution is locked</strong>
+          <strong>Automatic execution is locked</strong>
           <p>
-            Dry run and assisted observation never sign or broadcast. Autonomous activation requires
-            a separate authorization and validated canary.
+            Use the connected-wallet review above to sign an eligible strategy proposal yourself.
+            Dry runs never broadcast. Autonomous activation remains disabled.
           </p>
           <Badge>HIDEKI / 50383</Badge>
         </div>

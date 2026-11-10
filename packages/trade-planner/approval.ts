@@ -1,4 +1,5 @@
 import { NETWORK } from '../shared-types';
+import Decimal from 'decimal.js';
 export interface TransactionPreview {
   chainId: number;
   account: string;
@@ -10,10 +11,12 @@ export interface TransactionPreview {
   expiresAt: number;
   market: string;
   estimatedGasSTT?: string;
+  estimatedGasUnits?: string;
   rawPrice?: string;
   rawQuantity?: string;
   orderType?: string;
   orderId?: string;
+  closingPosition?: string;
 }
 export function assertPreview(
   preview: TransactionPreview,
@@ -48,7 +51,7 @@ export function assertPreview(
   )
     throw new Error('Preview expired or validity window is invalid. Validate again.');
 }
-/** Expiry of the validation lease may advance; the reviewed transaction itself must not change. */
+/** The order stays identical; refreshed network costs may only decrease. */
 export function assertSameApproval(reviewed: TransactionPreview, fresh: TransactionPreview) {
   assertPreview(fresh, reviewed.account, reviewed.to);
   const keys = [
@@ -57,14 +60,12 @@ export function assertSameApproval(reviewed: TransactionPreview, fresh: Transact
     'to',
     'data',
     'value',
-    'gas',
-    'gasPrice',
-    'estimatedGasSTT',
     'rawPrice',
     'rawQuantity',
     'orderType',
     'orderId',
     'market',
+    'closingPosition',
   ] as const;
   if (
     keys.some((key) => {
@@ -78,6 +79,30 @@ export function assertSameApproval(reviewed: TransactionPreview, fresh: Transact
     })
   )
     throw new Error('Order parameters changed. Review a new preview.');
+  if (
+    fresh.estimatedGasUnits &&
+    /^\d+$/.test(fresh.estimatedGasUnits) &&
+    BigInt(fresh.estimatedGasUnits) > 0n &&
+    BigInt(fresh.estimatedGasUnits) * 110n <= BigInt(reviewed.gas) * 100n
+  ) {
+    fresh.gas = reviewed.gas;
+    if (fresh.gasPrice !== undefined)
+      fresh.estimatedGasSTT = new Decimal(fresh.gas).mul(fresh.gasPrice).div('1e18').toFixed();
+  }
+  if (
+    BigInt(fresh.gas) > BigInt(reviewed.gas) ||
+    (reviewed.gasPrice === undefined) !== (fresh.gasPrice === undefined) ||
+    (reviewed.gasPrice !== undefined &&
+      fresh.gasPrice !== undefined &&
+      BigInt(fresh.gasPrice) > BigInt(reviewed.gasPrice))
+  )
+    throw new Error('Network gas cost increased. Review a new preview.');
+  if (reviewed.estimatedGasSTT !== undefined || fresh.estimatedGasSTT !== undefined) {
+    const before = new Decimal(reviewed.estimatedGasSTT ?? 'NaN');
+    const after = new Decimal(fresh.estimatedGasSTT ?? 'NaN');
+    if (!before.isFinite() || !after.isFinite() || after.isNegative() || after.gt(before))
+      throw new Error('Network gas cost changed. Review a new preview.');
+  }
 }
 
 export class SubmissionFailure extends Error {

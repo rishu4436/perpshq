@@ -280,7 +280,7 @@ export async function account(address: Address) {
   const snapshot = pinnedSnapshot(rpc, m.marginBank, address);
   const [margin, positions, orders, fills, changes, gas, voucher] = await Promise.allSettled([
     snapshot.then((v) => v.margin),
-    sdk.client.listPerpPositions(address),
+    snapshot.then((v) => v.positions),
     sdk.client.getOrders(address, { markets: ms.map((v) => v.id), limit: 100 }),
     sdk.client.getUserFills(address, { markets: ms.map((v) => v.id), limit: 100 }),
     sdk.client.listPerpPositionChanges({ account: address, limit: 100 }),
@@ -322,7 +322,9 @@ export async function account(address: Address) {
         ...p,
         isLong: BigInt(p.size) > 0n,
         entryPriceX18: p.avgEntryPrice,
-        realizedPnl: p.lastUpdateRealizedPnl,
+        // The bank position does not expose historical realized P&L.
+        realizedPnl: null,
+        updatedAt: (p.lastUpdatedTimestampNs / 1000000n).toString(),
       })),
     analytics: value(analytics),
     openOrders: openOrders.result?.orders ?? null,
@@ -445,9 +447,10 @@ export async function prepare(plan: Plan, account: Address, approvedData?: Hex) 
     data,
     value: '0',
     gas: gas.toString(),
+    estimatedGasUnits: gasEstimate.toString(),
     gasPrice: gasPrice.toString(),
     estimatedGasSTT: fromRaw(gas * gasPrice, 18),
-    expiresAt: Date.now() + 30000,
+    expiresAt: Date.now() + 60000,
     market: m.symbol,
     maxQuantity: max.maxQuantity.toString(),
     limitedBy: max.limitedBy,
@@ -474,7 +477,8 @@ export async function prepareCancel(id: string, orderId: string, account: Addres
     args: [BigInt(orderId)],
   });
   await rpc.call({ account, to: m.poolAddress, data });
-  const gas = ((await rpc.estimateGas({ account, to: m.poolAddress, data })) * 125n) / 100n;
+  const gasEstimate = await rpc.estimateGas({ account, to: m.poolAddress, data });
+  const gas = (gasEstimate * 125n) / 100n;
   const gasPrice = await rpc.getGasPrice();
   if ((await rpc.getBalance({ address: account })) < gas * gasPrice)
     throw new Error('Insufficient STT for estimated cancellation gas');
@@ -487,9 +491,10 @@ export async function prepareCancel(id: string, orderId: string, account: Addres
     gas: gas.toString(),
     gasPrice: gasPrice.toString(),
     estimatedGasSTT: fromRaw(gas * gasPrice, 18),
-    expiresAt: Date.now() + 30000,
+    expiresAt: Date.now() + 60000,
     market: m.symbol,
     orderId,
+    estimatedGasUnits: gasEstimate.toString(),
   };
 }
 export async function receipt(hash: Hex, id: string, owner: Address) {

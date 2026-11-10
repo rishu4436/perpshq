@@ -240,13 +240,15 @@ export function assessRisk(
       const p = a.permissions;
       check(
         'Operator permission',
-        !!p &&
-          now - p.checkedAt <= 30000 &&
-          p.checkedAt <= now &&
-          p.place &&
-          p.cancel &&
-          (proposal.action === 'entry' || config.execution.allowPositionReductions),
-        'Fresh action policy and market-specific operator permissions are required',
+        config.execution.signer === 'owner-wallet'
+          ? !!config.ownerAddress && !config.operatorAddress
+          : !!p &&
+              now - p.checkedAt <= 30000 &&
+              p.checkedAt <= now &&
+              p.place &&
+              p.cancel &&
+              (proposal.action === 'entry' || config.execution.allowPositionReductions),
+        'Owner wallet signs its own exact reviewed call; delegated calls require fresh market-specific permissions',
       );
       const gas = numeric(a.gasSTT);
       check(

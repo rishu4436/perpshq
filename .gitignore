@@ -1,5 +1,6 @@
 node_modules/
 dist/
+server-build/
 data/
 .env
 .env.*
@@ -7,3 +8,4 @@ data/
 playwright-report/
 test-results/
 *.log
+.vercel/

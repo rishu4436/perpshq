@@ -1,5 +1,7 @@
 # Testnet evidence
 
+> Current status, 29 October 2026: the authorized BTC open and full close are verified. See [the execution report](TESTNET-EXECUTION-2026-10-29.md). Older missing-transaction statements below describe the earlier audit, not the current release.
+
 ## Current status
 
 **No PerpsHQ-authored signed transaction exists.** No wallet trade has been authorized or submitted during this build. Captured public fill hashes in `probe-results.json` belong to existing network activity and are **not** evidence of PerpsHQ execution. The automated browser tests use obvious mocked hashes and `MOCK-TEST-ORDER`; they are CI fixtures only.

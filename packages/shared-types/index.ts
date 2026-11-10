@@ -107,6 +107,7 @@ export interface PlanInput {
   leverage: string;
   slippageBps: string;
   quantity?: string;
+  closePositionOnly?: boolean;
 }
 export interface Plan {
   context?: MarketContextSnapshot;

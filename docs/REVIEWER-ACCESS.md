@@ -1,9 +1,11 @@
-# Reviewer access and deployment preparation
+# Reviewer access
 
-The repository is private: [rishu4436/perpshq](https://github.com/rishu4436/perpshq). Reviewers need GitHub access granted by the owner. No public hosting or visibility change has been authorized or performed.
+Website: https://perpshq.vercel.app · Workspace: https://perpshq.vercel.app/app.
 
-For an accessible local review, clone with authorized GitHub access, use Node 22.13+ (verified on Node 24), run `npm ci`, `npm run build`, `npm start`, and open `http://127.0.0.1:3000`. The homepage is `/`; the workspace is `/app`. Use the [demo script](DEMO.md) and [audit report](READINESS-AUDIT.md). Public chain reads require Hideki RPC, WebSocket and indexer connectivity; personal drafts remain in that browser. External-wallet support requires a browser extension. Tests use mocked providers rather than the reviewer's wallet.
+No wallet is needed for discovery, charts, analysis or planning. For manual signing, use a browser extension wallet on Somnia Hideki chain 50383 with testnet STT and collateral. Each transaction requires an exact review and wallet confirmation. There is no server-held trading key.
 
-Before any later public deployment, prepare a concrete hosting review covering authenticated personal persistence (if desired), approved origins/Host/proxy handling, TLS and wallet compatibility, CSP, API rate limits/caching, RPC connectivity, storage lifecycle and monitoring. The owner must approve the exact hosting target and publication scope. Keep the current loopback restrictions until that work is authorized; exposing the dev server or removing Origin checks is not a deployment procedure. Never add a funded server key.
+The public site does not expose shared local agent controls or server backups. Agent Studio supports connected-wallet sign-in, owner-isolated saved configurations, live reviews of all four templates and exact wallet execution when a reviewed action qualifies. Persistent unresolved requests block another submission until reconciled. Recovery Center exports browser records. The local source includes independent worker controls.
 
-Submission materials remain drafts: recording, real execution evidence, approved social links, verified event requirements and submission through the owner's eligible account are still outstanding. A local passing test suite does not establish public uptime, organizer eligibility or a signed trade.
+Source: https://github.com/rishu4436/perpshq and the package's `source/` directory. Run Node 24, `npm ci`, `npm run build`, `npm start`, then open http://127.0.0.1:3000/app. Start `npm run agent:worker` separately for local worker observation.
+
+Public hosting uses an exact HTTPS Host/Origin allowlist, transient public-data caching and browser-local personal records. Local-control routes are denied. Local databases, environment files and wallet/browser profiles are excluded from deployment and packaging. See [current release](RELEASE-2026-11-10.md) for verification and limitations.

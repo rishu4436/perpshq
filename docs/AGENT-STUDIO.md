@@ -1,5 +1,7 @@
 # PerpsHQ Agent Studio
 
+> Historical/local implementation context. The [10 November release report](RELEASE-2026-11-10.md) is the current deployment, execution and submission status.
+
 Agent Studio adds configurable, explainable strategies to the existing workspace. Open `/app#Agent%20Studio`. This release implements local dry run and assisted observation; **there is no Agent Studio signing or broadcast endpoint**. It does not establish a profitable strategy, an authored testnet trade, cloud deployment or 24/7 uptime.
 
 ## Start a local simulation

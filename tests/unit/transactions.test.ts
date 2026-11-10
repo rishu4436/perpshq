@@ -45,6 +45,26 @@ function provider(send: () => Promise<unknown> = async () => hash) {
 }
 afterEach(() => vi.useRealTimers());
 describe('reviewed transaction approval', () => {
+  it('keeps the approved gas ceiling when a fresh estimate still fits with headroom', () => {
+    const a = { ...preview(), estimatedGasSTT: '0.0000000001' };
+    const b = {
+      ...a,
+      gas: '106250',
+      estimatedGasUnits: '85000',
+      estimatedGasSTT: '0.00000000010625',
+    };
+    assertSameApproval(a, b);
+    expect(b.gas).toBe(a.gas);
+    expect(b.estimatedGasSTT).toBe(a.estimatedGasSTT);
+    expect(() => assertSameApproval(a, { ...b, gasPrice: '1001' })).toThrow();
+    expect(() =>
+      assertSameApproval(a, { ...b, estimatedGasUnits: '100000', gas: '125000' }),
+    ).toThrow();
+  });
+  it('rejects a different close-position anchor after approval', () => {
+    const a = { ...preview(), closingPosition: '13000:78000:2' };
+    expect(() => assertSameApproval(a, { ...a, closingPosition: '13000:79000:2' })).toThrow();
+  });
   it.each([
     'chainId',
     'account',
@@ -79,6 +99,28 @@ describe('reviewed transaction approval', () => {
   it('permits only a new validation lease for the identical transaction', () => {
     const a = preview();
     expect(() => assertSameApproval(a, { ...a, expiresAt: a.expiresAt + 1000 })).not.toThrow();
+  });
+  it('permits a lower gas estimate without changing the reviewed order', () => {
+    const a = { ...preview(), estimatedGasSTT: '0.01' };
+    expect(() =>
+      assertSameApproval(a, {
+        ...a,
+        gas: '80000',
+        gasPrice: '900',
+        estimatedGasSTT: '0.0072',
+        expiresAt: a.expiresAt + 1000,
+      }),
+    ).not.toThrow();
+  });
+  it('blocks a higher gas limit even when the total estimated cost falls', () => {
+    const a = { ...preview(), estimatedGasSTT: '0.01' };
+    expect(() =>
+      assertSameApproval(a, { ...a, gas: '110000', gasPrice: '500', estimatedGasSTT: '0.0055' }),
+    ).toThrow(/gas cost increased/);
+  });
+  it('blocks omission of a reviewed gas price', () => {
+    const a = preview();
+    expect(() => assertSameApproval(a, { ...a, gasPrice: undefined })).toThrow();
   });
 });
 describe('wallet dispatch and persisted recovery', () => {
@@ -210,6 +252,36 @@ describe('wallet dispatch and persisted recovery', () => {
       ),
     ).rejects.toMatchObject({ outcome: 'unknown' });
     expect(readSubmission(s)?.hash).toBe(hash);
+  });
+  it('persists a late explicit rejection before releasing its wallet lock', async () => {
+    vi.useFakeTimers();
+    const s = memory();
+    let reject!: (error: unknown) => void;
+    const rejected = vi.fn(async () => {
+      expect(readSubmission(s)).toBeDefined();
+    });
+    const promise = requestTransaction(
+      preview(),
+      provider(
+        () =>
+          new Promise((_, r) => {
+            reject = r;
+          }),
+      ),
+      s,
+      () => {},
+      () => 0,
+      100,
+      rejected,
+    );
+    const outcome = expect(promise).rejects.toMatchObject({ outcome: 'unknown' });
+    await vi.advanceTimersByTimeAsync(101);
+    await outcome;
+    expect(readSubmission(s)).toBeDefined();
+    reject({ code: 4001 });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(rejected).toHaveBeenCalledOnce();
+    expect(readSubmission(s)).toBeUndefined();
   });
   it('does not unlock corrupt saved intent', async () => {
     const s = memory();

@@ -33,7 +33,12 @@ export async function observeAgent(
         account: c.ownerAddress as `0x${string}`,
       });
     const permissions = c.operatorAddress ? await readPermissions(c, m) : null;
-    const errors = [...a.errors];
+    const errors =
+      c.execution.signer === 'owner-wallet'
+        ? a.errors.filter(
+            (e) => !/^(Orders|Fills|Position changes|Funding payments|Voucher):/.test(e),
+          )
+        : [...a.errors];
     let sessionPnl: string | null = null,
       dailyPnl: string | null = null,
       historyComplete = false;
@@ -45,6 +50,7 @@ export async function observeAgent(
           c.marketId,
           sessionStartedAt,
           a.margin.asOfBlock,
+          c.execution.signer === 'owner-wallet' ? 'bank-only' : 'indexed',
         );
         const daily =
           day === sessionStartedAt
@@ -54,6 +60,7 @@ export async function observeAgent(
                 c.marketId,
                 day,
                 a.margin.asOfBlock,
+                c.execution.signer === 'owner-wallet' ? 'bank-only' : 'indexed',
               );
         historyComplete = session.complete && daily.complete;
         if (historyComplete) {
@@ -151,7 +158,12 @@ export async function observeAgent(
       dailyPnl,
       historyComplete,
       exposureComplete: a.exposure.complete,
-      gasSTT: permissions?.gasSTT ?? null,
+      gasSTT:
+        c.execution.signer === 'owner-wallet'
+          ? a.gas == null
+            ? null
+            : fromRaw(BigInt(a.gas), 18)
+          : (permissions?.gasSTT ?? null),
       permissions: permissions
         ? {
             place: permissions.place,

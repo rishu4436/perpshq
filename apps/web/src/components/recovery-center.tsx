@@ -21,6 +21,7 @@ import { exportBrowserStorage } from '../storage';
 import './recovery-center.css';
 type Recovery = ReturnType<typeof recovery>;
 interface State {
+  publicHosted?: boolean;
   recovery: Recovery;
   alerts: InboxAlert[];
   portfolios: ReturnType<typeof portfolioViews>;
@@ -68,7 +69,7 @@ export default function RecoveryCenter({
     refetchInterval: 10000,
   });
   const s = q.data,
-    agentId = selected || s?.recovery.agents[0]?.id;
+    agentId = selected || s?.recovery?.agents[0]?.id;
   const rq = useQuery({
     queryKey: ['replays', agentId],
     queryFn: () => api<ReturnType<typeof replays>>('/workspace/agents/' + agentId + '/replays'),
@@ -76,10 +77,11 @@ export default function RecoveryCenter({
   });
   const replay = rq.data?.find((r) => r.decision.id === decision) ?? rq.data?.[0];
   useEffect(() => {
+    if (s?.publicHosted) return;
     void flushActivity();
     const t = setInterval(() => void flushActivity(), 15000);
     return () => clearInterval(t);
-  }, []);
+  }, [s?.publicHosted]);
   async function run(work: () => Promise<unknown>, success: string) {
     setBusy(true);
     setError('');
@@ -152,9 +154,42 @@ export default function RecoveryCenter({
     location.reload();
   }
   const accountReports =
-    s?.accounting.filter(
+    s?.accounting?.filter(
       (a) => a.account.toLowerCase() === (wallet.address ?? account?.address)?.toLowerCase(),
     ) ?? [];
+  if (s?.publicHosted)
+    return (
+      <div className="recovery-center">
+        <section className="control-intro">
+          <div className="eyebrow">PERPSHQ / RECOVERY</div>
+          <h2>Your wallet. Your workspace.</h2>
+          <p>
+            Transaction recovery is available in Trade Planner and Positions & Risk. Your journal
+            and watchlist stay in this browser.
+          </p>
+          <Badge>PUBLIC TESTNET WORKSPACE</Badge>
+        </section>
+        <section className="studio-boundary">
+          <h3>Export your browser records</h3>
+          <p>
+            Save a copy of your local journal, watchlists and settings. Worker backups and agent
+            controls are available in the local application.
+          </p>
+          <button
+            className="secondary"
+            onClick={() =>
+              download(
+                'perpshq-browser-backup.json',
+                JSON.stringify(exportBrowserStorage(localStorage), null, 2),
+              )
+            }
+          >
+            <Download size={16} /> Export browser backup
+          </button>
+        </section>
+        <ReadinessChecklist wallet={wallet} account={account} market={market} />
+      </div>
+    );
   return (
     <div className="recovery-center">
       <section className="control-intro">

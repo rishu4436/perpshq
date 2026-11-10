@@ -6,11 +6,13 @@ Source: [rishu4436/perpshq](https://github.com/rishu4436/perpshq).
 
 A connected dreamDEX perpetual market intelligence workspace for **Somnia Hideki testnet, chain 50383**. Built with real perpetual data, deterministic analysis, decimal-safe planning and user-controlled wallet signing.
 
-This is a substantial working local application, **not a completed or verified trading release**. No PerpsHQ-authored signed testnet order exists yet. Native position reductions/protective orders and app-managed wallet integration remain unsupported. See the [build progress](docs/BUILD-PROGRESS.md) for precise status.
+Live website: **https://perpshq.vercel.app** · [Open workspace](https://perpshq.vercel.app/app) · [Current release](docs/RELEASE-2026-11-10.md).
+
+Manual BTC open/close, a Trend entry and Guardian cancellation have verified Hideki receipts. Breakout and Mean Reversion have not produced a qualifying live entry during the observed tests. Autonomous execution and native atomic reduce-only exits remain unavailable. Hosted Agent Studio supports wallet sign-in, private saved configurations, live strategy reviews, connected-wallet execution and persistent receipt recovery. Independent worker controls remain local.
 
 ## Run locally
 
-Requirements: Node **22.13+** (tested on **24.18**), npm, and network access to the Hideki HTTP RPC, WebSocket RPC and indexer. No keys, paid API account or .env file is required.
+Requirements: Node **24.x** (tested on **24.18**), npm, and network access to the Hideki HTTP RPC, WebSocket RPC and indexer. No keys, paid API account or .env file is required.
 
 ```powershell
 cd 'D:\New folder\perpshq'
@@ -25,7 +27,7 @@ npm run build
 npm start
 ```
 
-Use a normal browser with an injected EIP-1193 wallet when testing signing. The Codex preview may not have a wallet extension. To choose a port in PowerShell, set `$env:PORT='3001'` before starting. The API intentionally accepts only loopback Host/Origin. It is not configured for public deployment. Restart the server after backend changes; Vite handles frontend changes.
+Use a normal browser with an injected EIP-1193 wallet when testing signing. The Codex preview may not have a wallet extension. To choose a port in PowerShell, set `$env:PORT='3001'` before starting. Local mode accepts only loopback Host/Origin. Hosted mode requires an exact HTTPS origin and a Neon Postgres `DATABASE_URL` for authenticated strategy execution; shared worker controls and server backups remain local. Restart after backend changes; Vite handles frontend changes.
 
 ## What is implemented
 
@@ -36,7 +38,7 @@ Use a normal browser with an injected EIP-1193 wallet when testing signing. The 
 - **Explainable analysis:** fact-derived summaries, conditional scenarios, evidence coverage and a deterministic Ask PerpsHQ assistant. No LLM credential needed.
 - **Historical context:** exploratory EMA crossover outcomes with next-bar entry, explicit cost/horizon assumptions and chronological exploration/holdout partitions. No predictive-edge claims.
 - **Trade Planner:** manual inputs, exact decimals, tick/lot/minimum checks, risk sizing, estimated loss/reward, margin assumptions, save-to-journal and user-owned signing flow.
-- **Execution integration:** official SDK ABI, `getMaxPerpOrderSize`, system/chain checks, unsigned transaction simulation, gas estimation, consent, EIP-1193 wallet request, receipt/event/order reconciliation and native order cancellation. Signed execution and cancellation are implemented but **not verified on-chain**.
+- **Execution integration:** official SDK ABI, `getMaxPerpOrderSize`, system/chain checks, unsigned simulation, gas estimates, exact review, MetaMask provider discovery, signing and receipt/event/order reconciliation. [Manual and strategy transactions are verified](docs/LIVE-STRATEGY-TESTS-2026-11-01.md).
 - **Positions & Risk:** official margin health, indexed positions/orders, same-block live analytics, funding owed, alerts, transaction reconciliation and unknown-submission recovery.
 - **Portfolio:** actual fill/change/funding records, bounded accounting and an observed equity series. Missing lifetime statistics stay unavailable.
 - **Journal:** saved plans, thesis, tags, emotional context, review, transaction attachment and JSON export. Personal records persist in the browser.
@@ -47,7 +49,7 @@ Use a normal browser with an injected EIP-1193 wallet when testing signing. The 
 
 Agent Studio adds four configurable strategies, mandatory risk checks, conservative paper accounting, historical evaluation and an independent durable worker. Open `/app#Agent%20Studio`, create/validate an agent, run `npm run agent:worker` separately and request dry run. Saving alone never starts an agent. No wallet or private key is required or accepted by the worker.
 
-The dashboard includes explanations, recorded paper outcomes, actual permission reads, worker acknowledgements and nonsecret Railway exports. **Agent broadcasts and autonomous activation remain disabled in source.** Assisted mode is unsigned observation/preflight. Control is local SQLite; there is no authenticated Railway connection or remote kill switch. Docker/Railway files are prepared, but container verification is blocked by the unavailable Docker engine and nothing is deployed.
+The local dashboard includes explanations, observed simulations, actual permission reads, worker acknowledgements and configuration exports. **Autonomous activation remains disabled.** Assisted owner-wallet execution is implemented locally with fresh risk revalidation and durable receipt recovery. Local controls use SQLite and are not exposed on the public site. Hosted Agent Studio presents the four templates and actual verification status.
 
 Read the [guide](docs/AGENT-STUDIO.md), [architecture](docs/AGENT-STUDIO-ARCHITECTURE.md), [risk controls](docs/AGENT-RISK-CONTROLS.md), [operations](docs/AGENT-OPERATIONS.md) and [release report](docs/AGENT-STUDIO-REPORT.md). Genuine keyless worker startup/pause/duplicate/restart evidence is [recorded here](docs/agent-worker-verification.json). Simulated fills are never signed testnet evidence.
 

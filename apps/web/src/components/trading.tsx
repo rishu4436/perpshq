@@ -262,7 +262,11 @@ export function Planner({
       lock.current = false;
     }
   }
-  const fieldInput = (key: keyof PlanInput, label: string, hint?: string) => (
+  const fieldInput = (
+    key: Exclude<keyof PlanInput, 'closePositionOnly'>,
+    label: string,
+    hint?: string,
+  ) => (
     <label className="field">
       <span>{label}</span>
       <input
@@ -290,6 +294,15 @@ export function Planner({
         onReference={applyReference}
         onImport={(context) => onJournal({ ...plan, context })}
       />
+      <label className="consent">
+        <input
+          type="checkbox"
+          checked={input.closePositionOnly ?? false}
+          onChange={(e) => setInput((v) => ({ ...v, closePositionOnly: e.target.checked }))}
+        />
+        Close current position only: require the exact full position and opposite IOC on every
+        review. Supervised close; the protocol does not provide atomic reduce-only protection.
+      </label>
       <div className="planner-layout">
         <section className="panel planner-form">
           <div className="panel-head">
@@ -805,8 +818,8 @@ export function Positions({
               </thead>
               <tbody>
                 {a.positions.map((p, i) => {
-                  const m = markets.find((v) => v.id === p.pool),
-                    live = a.analytics?.find((v) => v.pool === p.pool);
+                  const m = markets.find((v) => v.id.toLowerCase() === p.pool.toLowerCase()),
+                    live = a.analytics?.find((v) => v.pool.toLowerCase() === p.pool.toLowerCase());
                   return (
                     <tr key={i}>
                       <td>{m?.symbol ?? short(p.pool)}</td>
@@ -830,7 +843,7 @@ export function Positions({
                           live?.priceable ? raw(live.accruedFunding, a.quoteDecimals) : undefined,
                         )}
                       </td>
-                      <td>{price(raw(p.realizedPnl, a.quoteDecimals))}</td>
+                      <td>{price(raw(p.realizedPnl ?? undefined, a.quoteDecimals))}</td>
                       <td>
                         <button className="row-action" onClick={() => go('Trade Planner', m?.id)}>
                           Review plan
@@ -849,13 +862,13 @@ export function Positions({
             title={a?.positions ? 'No open positions' : 'Position data unavailable'}
           >
             No position values are inferred from order submissions. Position reads come from the
-            Hideki perp indexer.
+            Hideki margin bank at the verified snapshot block.
           </Empty>
         )}
         <div className="table-foot">
-          Live mark, P&L and funding use the official same-block analytics when available. Entry
-          rows are indexed and may lag. Positive funding is owed by the account. Liquidation
-          estimates are unavailable.
+          Live mark, P&L and funding use the official same-block analytics when available. Entry and
+          size come directly from the margin bank at that block. Positive funding is owed by the
+          account. Liquidation estimates are unavailable.
         </div>
       </section>
       <section className="panel">

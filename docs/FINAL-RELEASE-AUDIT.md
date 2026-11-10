@@ -1,5 +1,7 @@
 # Final integration and release audit — 21 October 2026
 
+> Historical/local implementation context. The [10 November release report](RELEASE-2026-11-10.md) is the current deployment, execution and submission status.
+
 ## A. Overall release status
 
 **Partially ready.** The trading workspace and Agent Studio are integrated on a review branch, safety defects are fixed and safe local verification passes. A genuine user-approved/funded authored order, container runtime verification, hosted uptime and organizer submission evidence remain missing. No real trade, funding, grant, deployment, visibility change or main merge occurred. This is an implementation/release review, not an independent formal security certification.

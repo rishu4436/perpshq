@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#0c100b" />
+    <meta
+      name="description"
+      content="PerpsHQ reviewer kit: live testnet workspace, product demo, current source package and verified transaction evidence."
+    />
+    <title>PerpsHQ — Reviewer kit</title>
+    <link rel="icon" href="/favicon.svg" />
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+        background: #0c100b;
+        color: #eef5e7;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      main {
+        max-width: 1120px;
+        margin: auto;
+        padding: 36px 24px 80px;
+      }
+      a {
+        color: #d3fa91;
+        text-underline-offset: 4px;
+      }
+      nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #303b25;
+        padding-bottom: 24px;
+      }
+      .brand {
+        font-size: 26px;
+        font-weight: 750;
+        letter-spacing: -1px;
+        text-decoration: none;
+        color: #eef5e7;
+      }
+      .brand span {
+        color: #cffa83;
+      }
+      .eyebrow {
+        color: #cffa83;
+        font-size: 12px;
+        letter-spacing: 2px;
+        margin-top: 60px;
+      }
+      h1 {
+        font-size: clamp(38px, 7vw, 72px);
+        line-height: 1.05;
+        font-weight: 550;
+        letter-spacing: -3px;
+        margin: 20px 0;
+      }
+      p {
+        color: #b7c1ad;
+        line-height: 1.75;
+        max-width: 800px;
+      }
+      .actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin: 28px 0;
+      }
+      .button {
+        padding: 14px 20px;
+        border: 1px solid #465634;
+        border-radius: 10px;
+        text-decoration: none;
+        background: #1b2514;
+        display: inline-block;
+      }
+      .primary {
+        background: #d1fa8c;
+        color: #17220d;
+        border-color: #d1fa8c;
+        font-weight: 650;
+      }
+      video {
+        width: 100%;
+        border: 1px solid #38462b;
+        border-radius: 16px;
+        background: #080c06;
+        margin-top: 15px;
+      }
+      h2 {
+        font-size: 29px;
+        font-weight: 550;
+        margin-top: 52px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .card {
+        border: 1px solid #35412b;
+        background: #151d10;
+        padding: 24px;
+        border-radius: 14px;
+      }
+      .card h3 {
+        margin-top: 0;
+        font-size: 21px;
+      }
+      .card p {
+        font-size: 15px;
+      }
+      .hash {
+        font-size: 13px;
+        overflow-wrap: anywhere;
+      }
+      .status {
+        color: #d1fa8c;
+        font-size: 13px;
+      }
+      li {
+        color: #b7c1ad;
+        line-height: 1.8;
+        margin: 8px 0;
+      }
+      footer {
+        border-top: 1px solid #303b25;
+        margin-top: 50px;
+        padding-top: 24px;
+        color: #9eaa92;
+        font-size: 13px;
+      }
+      @media (max-width: 640px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        h1 {
+          letter-spacing: -1.5px;
+        }
+        main {
+          padding-inline: 18px;
+        }
+        .button {
+          width: 100%;
+          text-align: center;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <nav>
+        <a href="/" class="brand">perpshq<span>.</span></a
+        ><a href="/app">Open workspace ↗</a>
+      </nav>
+      <div class="eyebrow">REVIEWER KIT / 10 NOVEMBER 2026</div>
+      <h1>See the workflow.<br />Inspect the evidence.</h1>
+      <p>
+        A connected workspace for dreamDEX perpetuals on Somnia Hideki testnet. Explore real market
+        data, plan a trade, review an exact wallet transaction and reconcile what happened on-chain.
+      </p>
+      <div class="actions">
+        <a class="button primary" href="/app">Launch PerpsHQ ↗</a
+        ><a class="button" href="/release/perpshq-submission.zip" download
+          >Download submission package</a
+        ><a class="button" href="https://github.com/rishu4436/perpshq">GitHub repository ↗</a>
+      </div>
+      <p>
+        The ZIP includes the current source snapshot, setup instructions, verification report and
+        captioned demo. The source repository includes the hosted Agent Studio release.
+      </p>
+      <h2>A guided product tour</h2>
+      <p>
+        This recording predates hosted Agent Studio. Wallet-authenticated strategy reviews and
+        execution are now available on the live site; the release report describes the update.
+      </p>
+      <p>
+        Captioned recording of the deployed app. The recording browser is disconnected from a
+        wallet. Historical transaction evidence is shown on separate, clearly labelled cards; this
+        video does not stage or simulate live fills.
+      </p>
+      <video controls preload="metadata" poster="/release/poster.png">
+        <source src="/release/perpshq-demo.mp4" type="video/mp4" />
+        <track kind="captions" src="/release/captions.vtt" srclang="en" label="English" default />
+        Your browser does not support video.
+        <a href="/release/perpshq-demo.mp4">Download the demo.</a>
+      </video>
+      <p>
+        <a href="/release/perpshq-demo.mp4" download>Download MP4</a> ·
+        <a href="/release/release-report.md">Read the release report</a>
+      </p>
+      <h2>Actual testnet execution</h2>
+      <div class="grid">
+        <section class="card">
+          <div class="status">VERIFIED / MANUAL OPEN & CLOSE</div>
+          <h3>Minimum BTC trade</h3>
+          <p>
+            0.00013 BTC long opened and fully closed through the connected wallet. Equal-size
+            supervised close; no atomic reduce-only claim.
+          </p>
+          <a
+            class="hash"
+            href="https://smk-dev-markets-explorer-hideki-euw4-uzavbo36ra-ez.a.run.app/tx/0x39c2790a6a7919696c61a05933b0e1e2a7a5d8690095337642bcd48c48732eb5"
+            >Inspect closing transaction ↗</a
+          >
+        </section>
+        <section class="card">
+          <div class="status">VERIFIED / TREND ENTRY</div>
+          <h3>Strategy → reviewed trade</h3>
+          <p>
+            A real Trend signal produced a 0.00013 BTC short filled at 78,112.70 USDso. Subsequent
+            cleanup was supervised.
+          </p>
+          <a
+            class="hash"
+            href="https://smk-dev-markets-explorer-hideki-euw4-uzavbo36ra-ez.a.run.app/tx/0xada1934cdd648fa55feb93310c3b7786dbb36c083873ca8bc5870ddc8b2e1850"
+            >Inspect Trend transaction ↗</a
+          >
+        </section>
+        <section class="card">
+          <div class="status">VERIFIED / GUARDIAN CANCELLATION</div>
+          <h3>Risk policy → owned order cancel</h3>
+          <p>
+            Guardian identified an excess resting order under a configured zero-order cap. The
+            connected owner wallet cancelled it; the receipt and order state were verified.
+          </p>
+          <a
+            class="hash"
+            href="https://smk-dev-markets-explorer-hideki-euw4-uzavbo36ra-ez.a.run.app/tx/0x6fe8b1a9b192a41201ce4fe7facaa1886c5e7a3651ecdf153ae99491860812bd"
+            >Inspect Guardian transaction ↗</a
+          >
+        </section>
+        <section class="card">
+          <div class="status">LIVE ENTRY VERIFICATION OUTSTANDING</div>
+          <h3>Breakout & Mean Reversion</h3>
+          <p>
+            Real signal checks ran with default conditions. No entry qualified during the observed
+            tests. NO_ACTION decisions and automated fixtures are not presented as executed trades.
+          </p>
+        </section>
+      </div>
+      <h2>What runs where</h2>
+      <ul>
+        <li>
+          <strong>Public website:</strong> live research, indicators, planning, manual wallet
+          trading, receipt reconciliation, browser-local records and authenticated Agent Studio
+          with private saved configurations and connected-wallet execution.
+        </li>
+        <li>
+          <strong>Local application:</strong> independent worker controls, full local history and
+          server workspace backup and recovery.
+        </li>
+        <li>
+          <strong>Unavailable:</strong> autonomous broadcasting, hosted worker control and native
+          atomic reduce-only exits. Planning stops are not armed protective orders.
+        </li>
+      </ul>
+      <p>
+        Validation: 347 unit/integration checks and 20 focused wallet/hosting browser checks passed;
+        optional checks are identified in the report. The current dependency audit reports zero
+        known vulnerabilities. These checks are not a formal security audit or evidence of
+        profitability.
+      </p>
+      <footer>
+        Independent frontend · dreamDEX data · Hideki 50383 · Testnet only. Organizer eligibility,
+        deadline and acceptance remain subject to the event's current rules.
+      </footer>
+    </main>
+  </body>
+</html>

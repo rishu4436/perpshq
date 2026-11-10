@@ -21,10 +21,19 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
     method: body === undefined ? 'GET' : 'POST',
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(path === '/workspace/accounting' ? 120000 : 30000),
+    signal: AbortSignal.timeout(
+      path === '/owner-strategy/review'
+        ? 300000
+        : path === '/workspace/accounting'
+          ? 120000
+          : 30000,
+    ),
   });
   const data = await r.json();
-  if (!r.ok) throw new Error(data.error ?? `Request failed (${r.status})`);
+  if (!r.ok)
+    throw Object.assign(new Error(data.error ?? `Request failed (${r.status})`), {
+      status: r.status,
+    });
   return data;
 }
 export function useStored<T>(key: string, initial: T) {
@@ -99,7 +108,7 @@ export interface AccountData {
         size: string;
         isLong: boolean;
         entryPriceX18: string;
-        realizedPnl: string;
+        realizedPnl: string | null;
         updatedAt: string;
       }[];
   orders:

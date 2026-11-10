@@ -139,6 +139,7 @@ describe('account adapter does not substitute bounded indexed history', () => {
   beforeEach(() => {
     vi.spyOn(snapshots, 'pinnedSnapshot').mockResolvedValue({
       margin: fixture().margin,
+      positions: [],
       analytics: [],
     });
     vi.spyOn(sdk.client, 'listPerpMarkets').mockResolvedValue(
@@ -157,6 +158,36 @@ describe('account adapter does not substitute bounded indexed history', () => {
     vi.spyOn(rpc, 'getBalance').mockResolvedValue(0n);
   });
   afterEach(() => vi.restoreAllMocks());
+  it('shows a filled bank position while the indexed position list is still empty', async () => {
+    vi.mocked(snapshots.pinnedSnapshot).mockResolvedValue({
+      margin: { ...fixture().margin, activePerpPools: [market.poolAddress] },
+      positions: [
+        {
+          pool: market.poolAddress,
+          asOfBlock: 100n,
+          size: 13000n,
+          avgEntryPrice: 79984300000000000000000n,
+          entryFundingIndex: 0n,
+          lastUpdatedTimestampNs: 1793258138000000000n,
+        },
+      ],
+      analytics: [position()],
+    });
+    vi.spyOn(sdk.client, 'getOpenOrdersOnchain').mockResolvedValue({
+      blockNumber: 100n,
+      orders: [],
+    });
+    const result = await account(owner);
+    expect(result.positions).toEqual([
+      expect.objectContaining({
+        size: 13000n,
+        isLong: true,
+        entryPriceX18: 79984300000000000000000n,
+        realizedPnl: null,
+      }),
+    ]);
+    expect(sdk.client.listPerpPositions).not.toHaveBeenCalled();
+  });
   it('returns all 125 chain orders at the margin block, independently of 100 history rows', async () => {
     vi.spyOn(sdk.client, 'getOpenOrdersOnchain').mockResolvedValue({
       blockNumber: 100n,

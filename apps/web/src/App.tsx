@@ -1321,7 +1321,7 @@ function App() {
           )}
           {page === 'Agent Studio' && (
             <Suspense fallback={<Skeleton />}>
-              <AgentStudio markets={ms} />
+              <AgentStudio markets={ms} wallet={wallet} />
             </Suspense>
           )}
           {page === 'Recovery Center' && (
@@ -1359,6 +1359,9 @@ function App() {
               PerpsHQ <span>×</span> dreamDEX
             </span>
             <span>Independent frontend · Hideki 50383 · Test funds only</span>
+            <a href="/release.html">
+              Reviewer kit <ExternalLink size={11} />
+            </a>
             <a
               href="https://app.testnet.dreamdex.io/docs/developers/perps-testnet"
               target="_blank"

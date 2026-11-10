@@ -44,7 +44,7 @@ export async function pinnedSnapshot(
     marginStatus: MARGIN_STATUS[status],
     asOfBlock: at,
   };
-  const analytics = await Promise.all(
+  const rows = await Promise.all(
     state.activePerpPools.map(async (pool) => {
       const [position, [ok, snap]] = await Promise.all([
         client.readContract({ ...base, functionName: 'getPosition', args: [owner, pool] }),
@@ -55,26 +55,38 @@ export async function pinnedSnapshot(
           functionName: 'tryGetHealthSnapshot',
         }),
       ]);
-      if (!ok) return { priceable: false as const, asOfBlock: at, pool, size: position.size };
+      const livePosition = { ...position, pool, asOfBlock: at };
+      if (!ok)
+        return {
+          position: livePosition,
+          analytics: { priceable: false as const, asOfBlock: at, pool, size: position.size },
+        };
       return {
-        priceable: true as const,
-        asOfBlock: at,
-        pool,
-        avgEntryPrice: position.avgEntryPrice,
-        markPrice: snap.markPrice,
-        ...perpPositionAnalytics({
-          size: position.size,
+        position: livePosition,
+        analytics: {
+          priceable: true as const,
+          asOfBlock: at,
+          pool,
           avgEntryPrice: position.avgEntryPrice,
-          entryFundingIndex: position.entryFundingIndex,
           markPrice: snap.markPrice,
-          projectedCumulativeFunding: snap.projectedCumulativeFunding,
-          oneBase: snap.oneBase,
-          effectiveImfBps: snap.effectiveIMFBps,
-          maintenanceMarginBps: snap.maintenanceMarginBps,
-          closeOutMarginBps: snap.closeOutMarginBps,
-        }),
+          ...perpPositionAnalytics({
+            size: position.size,
+            avgEntryPrice: position.avgEntryPrice,
+            entryFundingIndex: position.entryFundingIndex,
+            markPrice: snap.markPrice,
+            projectedCumulativeFunding: snap.projectedCumulativeFunding,
+            oneBase: snap.oneBase,
+            effectiveImfBps: snap.effectiveIMFBps,
+            maintenanceMarginBps: snap.maintenanceMarginBps,
+            closeOutMarginBps: snap.closeOutMarginBps,
+          }),
+        },
       };
     }),
   );
-  return { margin, analytics };
+  return {
+    margin,
+    positions: rows.map((row) => row.position),
+    analytics: rows.map((row) => row.analytics),
+  };
 }

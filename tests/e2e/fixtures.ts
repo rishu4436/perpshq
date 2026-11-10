@@ -165,7 +165,8 @@ export async function mocks(page: Page, wrongChain = false, outcome = 'success')
   });
 }
 export async function nav(page: Page, name: string) {
-  await expect(page.locator('.app .topbar')).toBeVisible();
+  // The app is loaded lazily; allow the cold development bundle to finish on Windows.
+  await expect(page.locator('.app .topbar')).toBeVisible({ timeout: 30000 });
   const menu = page.getByRole('button', { name: 'Open navigation' });
   if (await menu.isVisible()) await menu.click();
   await page
