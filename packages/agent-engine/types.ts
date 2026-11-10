@@ -114,6 +114,21 @@ export interface AgentDecision {
   strategy: AgentConfig['strategy'];
   type: DecisionType;
   evaluatedAt: number;
+  candleEvidence?: {
+    marketId: string;
+    timeframe: Timeframe;
+    openTime: number;
+    closeTime: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume?: number;
+    closed: boolean;
+    sourceComplete: boolean;
+    source: string;
+    fetchedAt: number;
+  };
   sourceTimestamps: {
     fetchedAt?: number;
     markUpdatedAt?: number;

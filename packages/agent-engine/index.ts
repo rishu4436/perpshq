@@ -35,6 +35,23 @@ export function evaluateAgent(
     strategy: config.strategy,
     type: 'NO_ACTION',
     evaluatedAt: now,
+    candleEvidence: last
+      ? {
+          marketId: last.market,
+          timeframe: last.timeframe,
+          openTime: last.time,
+          closeTime: last.time + intervals[last.timeframe],
+          open: last.open,
+          high: last.high,
+          low: last.low,
+          close: last.close,
+          volume: last.volume,
+          closed: last.complete && last.time + intervals[last.timeframe] <= now / 1000,
+          sourceComplete: last.complete,
+          source: last.source,
+          fetchedAt: last.fetchedAt,
+        }
+      : undefined,
     sourceTimestamps: {
       fetchedAt: d?.quality.fetchedAt,
       markUpdatedAt: d?.market.markUpdatedAt,

@@ -96,11 +96,23 @@ for (const strategy of [
       throw new Error('Unclear required amount rejection');
   }
   await request('/configs', { config });
+  const reviewStarted = Date.now();
   const result = await request('/review', { config });
+  if (result.decision?.sourceTimestamps?.candleTime !== undefined) {
+    const candle = result.decision.candleEvidence;
+    if (
+      !candle ||
+      ['open', 'high', 'low', 'close'].some((key) => !Number.isFinite(candle[key])) ||
+      typeof candle.closed !== 'boolean' ||
+      candle.openTime !== result.decision.sourceTimestamps.candleTime
+    )
+      throw new Error('Review is missing its actual candle OHLC and closed evidence');
+  }
   evidence.reviews.push({
     strategy,
     decision: result.decision,
     hasExecutablePreview: !!result.preview,
+    durationMs: Date.now() - reviewStarted,
   });
   console.log(JSON.stringify({ strategy, type: result.decision?.type, preview: !!result.preview }));
 }

@@ -7,6 +7,7 @@ async function hostedMocks(page: Page, execute = false) {
   let authenticated = false;
   const saved: AgentConfig[] = [],
     strategies: string[] = [];
+  const decisions: Record<string, unknown>[] = [];
   let ticket = crypto.randomUUID(),
     state = 'reviewed';
   await page.addInitScript(() => {
@@ -62,7 +63,7 @@ async function hostedMocks(page: Page, execute = false) {
         saved.push(c);
         return route.fulfill({ json: { config: c } });
       }
-      return route.fulfill({ json: { configs: saved, decisions: [], unresolved: [] } });
+      return route.fulfill({ json: { configs: saved, decisions, unresolved: [] } });
     }
     if (path.endsWith('/defaults')) {
       const c = defaultAgentConfig(btc.id, crypto.randomUUID());
@@ -75,28 +76,45 @@ async function hostedMocks(page: Page, execute = false) {
       const c = route.request().postDataJSON().config as AgentConfig;
       strategies.push(c.strategy);
       state = 'reviewed';
-      if (!execute)
-        return route.fulfill({
-          json: {
-            config: c,
-            decision: {
-              id: crypto.randomUUID(),
-              strategy: c.strategy,
-              agentId: c.id,
-              configRevision: c.revision,
-              type: 'NO_ACTION',
-              evaluatedAt: Date.now(),
-              rationale: 'AUTOMATED TEST FIXTURE: no qualifying signal',
-              failed: ['TEST FIXTURE signal condition'],
-            },
-          },
-        });
+      const audit = {
+        candleEvidence: {
+          marketId: btc.id,
+          timeframe: c.timeframes[0],
+          openTime: 1700000100,
+          closeTime: 1700001000,
+          open: 60000,
+          high: 60100,
+          low: 59900,
+          close: 60050,
+          volume: 1,
+          closed: true,
+          sourceComplete: true,
+          source: 'AUTOMATED TEST FIXTURE',
+          fetchedAt: Date.now(),
+        },
+      };
+      if (!execute) {
+        const decision = {
+          ...audit,
+          id: crypto.randomUUID(),
+          strategy: c.strategy,
+          agentId: c.id,
+          configRevision: c.revision,
+          type: 'NO_ACTION',
+          evaluatedAt: Date.now(),
+          rationale: 'AUTOMATED TEST FIXTURE: no qualifying signal',
+          failed: ['TEST FIXTURE signal condition'],
+        };
+        decisions.push(decision);
+        return route.fulfill({ json: { config: c, decision } });
+      }
       const guardian = c.strategy === 'risk-guardian';
       return route.fulfill({
         json: {
           id: ticket,
           config: c,
           decision: {
+            ...audit,
             id: crypto.randomUUID(),
             strategy: c.strategy,
             agentId: c.id,
@@ -167,6 +185,12 @@ test('all four hosted templates review real-shaped decisions without opening a w
     await page.getByRole('button', { name: 'Load owner strategy configuration' }).click();
     await page.getByRole('button', { name: 'Review live owner strategy' }).click();
     await expect(page.getByRole('heading', { name: 'NO ACTION', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Reviewed candle evidence' }).locator('dd'),
+    ).toHaveText(['60000', '60100', '59900', '60050', '1']);
+    await expect(page.getByRole('region', { name: 'Reviewed candle evidence' })).toContainText(
+      'Closed: Yes',
+    );
     await expect(page.getByRole('note', { name: 'Conditions preventing execution' })).toContainText(
       'TEST FIXTURE signal condition',
     );
@@ -181,7 +205,46 @@ test('all four hosted templates review real-shaped decisions without opening a w
     await page.evaluate(() => (window as unknown as { __walletCalls: string[] }).__walletCalls),
   ).not.toContain('eth_sendTransaction');
   await page.getByRole('button', { name: 'Save wallet strategy' }).click();
+  await expect(page.getByRole('status').filter({ hasText: /Saved .*revision/ })).toBeVisible();
   await expect(page.getByLabel('Saved wallet strategies')).toBeVisible();
+});
+test('slow reviews show elapsed time and explain what remains in progress', async ({ page }) => {
+  await hostedMocks(page);
+  await page.getByRole('button', { name: 'Load owner strategy configuration' }).click();
+  await page.clock.install();
+  let release!: () => void, entered!: () => void;
+  const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    }),
+    started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+  await page.route('**/api/owner-strategy/review', async (route) => {
+    entered();
+    await gate;
+    const config = route.request().postDataJSON().config;
+    await route.fulfill({
+      json: {
+        config,
+        decision: {
+          id: crypto.randomUUID(),
+          agentId: config.id,
+          configRevision: config.revision,
+          strategy: config.strategy,
+          type: 'NO_ACTION',
+          evaluatedAt: Date.now(),
+          rationale: 'LABELLED SLOW QA FIXTURE',
+        },
+      },
+    });
+  });
+  await page.getByRole('button', { name: 'Review live owner strategy' }).click();
+  await started;
+  await page.clock.fastForward(12000);
+  await expect(page.getByText(/12s elapsed/)).toContainText('Still waiting for RPC/indexer reads');
+  await expect(page.getByRole('button', { name: 'Review live owner strategy' })).toBeDisabled();
+  release();
+  await expect(page.getByRole('heading', { name: 'NO ACTION', exact: true })).toBeVisible();
 });
 test('configuration validation is readable and a revised configuration marks old reviews stale', async ({
   page,
@@ -234,6 +297,12 @@ for (const emit of [true, false])
     await expect(
       page.getByRole('button', { name: 'Switch to Hideki', exact: true }).first(),
     ).toBeVisible();
+    await page.getByText(/Recent strategy reviews/).click();
+    await expect(page.getByText(/Stale — wallet account or network changed/)).toBeVisible();
+    await page.reload();
+    await page.getByRole('button', { name: 'Connect owner wallet', exact: true }).click();
+    await page.getByText(/Recent strategy reviews/).click();
+    await expect(page.getByText(/Stale — wallet account or network changed/)).toBeVisible();
     expect(
       await page.evaluate(() => (window as unknown as { __walletCalls: string[] }).__walletCalls),
     ).not.toContain('eth_sendTransaction');

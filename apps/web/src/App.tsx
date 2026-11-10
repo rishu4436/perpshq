@@ -581,7 +581,8 @@ function App() {
                 <td>
                   <div className="market-cell">
                     <button
-                      aria-label={`Watch ${m.symbol}`}
+                      aria-label={`${watch.includes(m.id) ? 'Remove' : 'Add'} ${m.symbol} ${watch.includes(m.id) ? 'from' : 'to'} watchlist`}
+                      aria-pressed={watch.includes(m.id)}
                       className={'star ' + (watch.includes(m.id) ? 'selected' : '')}
                       onClick={() => toggleWatch(m.id)}
                     >
@@ -1278,21 +1279,41 @@ function App() {
             </>
           )}
           {page === 'Trade Planner' && m && (
-            <Planner
-              key={m.id}
-              market={liveMarket!}
-              detail={detail}
-              wallet={wallet}
-              onSave={savePlan}
-              onJournal={addJournal}
-              onTransaction={(tx) => setTransactions((v) => [tx, ...v].slice(0, 100))}
-              pending={transactions.filter(
-                (v) =>
-                  v.account.toLowerCase() === wallet.address?.toLowerCase() &&
-                  ['pending', 'unknown', 'syncing'].includes(v.state),
-              )}
-              onEvidence={updateEvidence}
-            />
+            <>
+              <label className="field">
+                <span>Trade Planner market</span>
+                <select
+                  aria-label="Trade Planner market"
+                  value={m.id}
+                  onChange={(e) => setSelected(e.target.value)}
+                >
+                  {ms.map((market) => (
+                    <option key={market.id} value={market.id}>
+                      {market.symbol}
+                    </option>
+                  ))}
+                </select>
+                <small>
+                  Changing market loads that market’s saved draft and clears the active order
+                  review.
+                </small>
+              </label>
+              <Planner
+                key={m.id}
+                market={liveMarket!}
+                detail={detail}
+                wallet={wallet}
+                onSave={savePlan}
+                onJournal={addJournal}
+                onTransaction={(tx) => setTransactions((v) => [tx, ...v].slice(0, 100))}
+                pending={transactions.filter(
+                  (v) =>
+                    v.account.toLowerCase() === wallet.address?.toLowerCase() &&
+                    ['pending', 'unknown', 'syncing'].includes(v.state),
+                )}
+                onEvidence={updateEvidence}
+              />
+            </>
           )}
           {page === 'Positions & Risk' && (
             <>

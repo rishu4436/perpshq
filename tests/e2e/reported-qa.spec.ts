@@ -1,5 +1,60 @@
 import { test, expect } from '@playwright/test';
-import { mocks, nav, account, btc, fakeHash } from './fixtures';
+import { mocks, nav, account, btc, eth, fakeHash, fillPlan } from './fixtures';
+
+test('row watchlist actions are state-aware on Command Center and Scanner', async ({ page }) => {
+  await mocks(page);
+  await page.goto('/app');
+  await page.getByRole('button', { name: 'Add ETH-PERP to watchlist', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Remove ETH-PERP from watchlist', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await nav(page, 'Opportunity Scanner');
+  await page.getByRole('button', { name: 'Remove ETH-PERP from watchlist', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Add ETH-PERP to watchlist', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'false');
+});
+test('journal deletion requires confirmation and cancellation preserves the entry', async ({
+  page,
+}) => {
+  await mocks(page);
+  await page.goto('/app');
+  await nav(page, 'Trade Journal');
+  await page.getByRole('button', { name: 'New entry', exact: true }).click();
+  await page.getByLabel('Trade thesis', { exact: true }).fill('Keep my recorded context');
+  await page.getByRole('button', { name: /Delete journal entry for/ }).click();
+  await expect(page.getByRole('alertdialog', { name: 'Confirm journal deletion' })).toBeVisible();
+  await page.getByRole('button', { name: 'Keep entry', exact: true }).click();
+  await expect(page.getByLabel('Trade thesis', { exact: true })).toHaveValue(
+    'Keep my recorded context',
+  );
+  await page.getByRole('button', { name: /Delete journal entry for/ }).click();
+  await page.getByRole('button', { name: 'Confirm delete entry', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Start with your reasoning' })).toBeVisible();
+});
+test('Planner market picker keeps separate drafts and discards the previous market approval', async ({
+  page,
+}) => {
+  await mocks(page);
+  await page.goto('/app');
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  await nav(page, 'Trade Planner');
+  await page.getByLabel('Trade Planner market', { exact: true }).selectOption(btc.id);
+  await fillPlan(page);
+  await page.getByRole('button', { name: 'Validate on testnet', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Confirm & open wallet', exact: true }),
+  ).toBeVisible();
+  await page.getByLabel('Trade Planner market', { exact: true }).selectOption(eth.id);
+  await expect(
+    page.getByRole('button', { name: 'Confirm & open wallet', exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Entry / reference price', exact: true }).fill('2000');
+  await page.getByLabel('Trade Planner market', { exact: true }).selectOption(btc.id);
+  await expect(
+    page.getByRole('textbox', { name: 'Entry / reference price', exact: true }),
+  ).toHaveValue('3000');
+});
 test('comma-separated journal tags survive incremental typing, persistence and export data', async ({
   page,
 }) => {

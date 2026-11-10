@@ -3,7 +3,7 @@ import type { useWallet } from '../../wallet';
 import type { Market } from '../../../../../packages/shared-types';
 import type { AgentConfig, AgentDecision } from '../../../../../packages/agent-engine';
 import { assertSameApproval } from '../../../../../packages/trade-planner/approval';
-import { api, errorMessage, type Preview, type Evidence } from '../../lib';
+import { api, errorMessage, useStored, type Preview, type Evidence } from '../../lib';
 import { ErrorNote } from '../ui';
 import { fromRaw } from '../../../../../packages/risk-engine';
 import { assertWalletChallenge } from '../../wallet-auth';
@@ -50,6 +50,14 @@ export function OwnerExecution({
 }) {
   const [now, setNow] = useState(Date.now());
   const reviewEpoch = useRef(0);
+  const previousWallet = useRef({ address: wallet.address, chain: wallet.chain });
+  const [invalidations, setInvalidations] = useStored<Record<string, string[]>>(
+    'perpshq.ownerReviewInvalidations',
+    {},
+  );
+  const [notice, setNotice] = useState('');
+  const [operation, setOperation] = useState('Checking live chain data and strategy policy');
+  const [startedAt, setStartedAt] = useState(0);
   const [draft, setDraft] = useState(''),
     [review, setReview] = useState<Review>(),
     [consent, setConsent] = useState(false),
@@ -67,6 +75,25 @@ export function OwnerExecution({
   const authenticated =
     !hosted || (!!wallet.address && sessionOwner === wallet.address.toLowerCase());
   useEffect(() => {
+    const previous = previousWallet.current;
+    if (
+      previous.address &&
+      (previous.address !== wallet.address || previous.chain !== wallet.chain)
+    ) {
+      const owner = previous.address.toLowerCase();
+      setInvalidations((old) => ({
+        ...old,
+        [owner]: [
+          ...new Set([
+            ...(old[owner] ?? []),
+            ...history.map((d) => d.id),
+            ...(review ? [review.decision.id] : []),
+          ]),
+        ].slice(-100),
+      }));
+    }
+    previousWallet.current = { address: wallet.address, chain: wallet.chain };
+    setNotice('');
     reviewEpoch.current++;
     setReview(undefined);
     setConsent(false);
@@ -114,18 +141,25 @@ export function OwnerExecution({
     };
   }, [hosted, sessionOwner, wallet.address, evidence]);
   useEffect(() => {
-    if (!review?.preview) return;
+    if (!busy && !review?.preview) return;
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
-  }, [review]);
+  }, [review, busy]);
   useEffect(() => {
     if (review?.preview)
       document.getElementById('owner-review-summary')?.scrollIntoView({ block: 'start' });
   }, [review?.id]);
-  async function run(work: () => Promise<void>) {
+  async function run(
+    work: () => Promise<void>,
+    label = 'Checking live chain data and strategy policy',
+  ) {
     if (busy) return;
     setBusy(true);
     setError('');
+    setNotice('');
+    setOperation(label);
+    setStartedAt(Date.now());
+    setNow(Date.now());
     try {
       await work();
     } catch (e) {
@@ -150,6 +184,7 @@ export function OwnerExecution({
     setSessionOwner(s.owner);
   }
   function edit(next: AgentConfig) {
+    setNotice('');
     reviewEpoch.current++;
     setDraft(JSON.stringify(next, null, 2));
     setReview(undefined);
@@ -208,13 +243,14 @@ export function OwnerExecution({
       old = saved.find((v) => v.id === c.id);
     if (!authenticated || c.ownerAddress?.toLowerCase() !== wallet.address?.toLowerCase())
       throw new Error('Sign in with the configuration owner first');
-    const unchanged = old && JSON.stringify(old) === JSON.stringify(c);
+    const unchanged = old && JSON.stringify(agentConfigSchema.parse(old)) === JSON.stringify(c);
     const result = await api<{ config: AgentConfig }>('/owner-strategy/configs', {
       config: { ...c, revision: unchanged ? old.revision : (old?.revision ?? 0) + 1 },
     });
     current();
     setSaved((v) => [...v.filter((s) => s.id !== result.config.id), result.config]);
     edit(result.config);
+    setNotice(`Saved ${result.config.name} · revision ${result.config.revision}.`);
   }
   async function load() {
     if (!wallet.address || !wallet.correct)
@@ -512,6 +548,7 @@ export function OwnerExecution({
                 value={draft}
                 onChange={(e) => {
                   reviewEpoch.current++;
+                  setNotice('');
                   setDraft(e.target.value);
                   setReview(undefined);
                   setConsent(false);
@@ -521,17 +558,65 @@ export function OwnerExecution({
             <button
               className="primary"
               disabled={busy || !wallet.correct || !authenticated}
-              onClick={() => void run(validate)}
+              onClick={() =>
+                void run(
+                  validate,
+                  'Reviewing completed candles, account state and daily-loss limits',
+                )
+              }
             >
               Review live owner strategy
             </button>
           </>
         )}
         <ErrorNote error={error} />
+        {notice && <p role="status">{notice}</p>}
         {review && (
           <>
             <h4 id="owner-review-summary">{review.decision.type.replaceAll('_', ' ')}</h4>
             <p>{review.decision.rationale}</p>
+            {review.decision.candleEvidence ? (
+              <section aria-label="Reviewed candle evidence">
+                <h4>Reviewed candle · {review.decision.candleEvidence.timeframe}</h4>
+                <p>
+                  Open time (UTC):{' '}
+                  {Number.isFinite(review.decision.candleEvidence.openTime)
+                    ? new Date(review.decision.candleEvidence.openTime * 1000).toISOString()
+                    : 'Unavailable'}
+                  <br />
+                  Close time (UTC):{' '}
+                  {Number.isFinite(review.decision.candleEvidence.closeTime)
+                    ? new Date(review.decision.candleEvidence.closeTime * 1000).toISOString()
+                    : 'Unavailable'}
+                </p>
+                <dl>
+                  {(['open', 'high', 'low', 'close', 'volume'] as const).map((key) => (
+                    <div key={key}>
+                      <dt>{key.toUpperCase()}</dt>
+                      <dd>
+                        {Number.isFinite(review.decision.candleEvidence![key])
+                          ? review.decision.candleEvidence![key]
+                          : 'Unavailable'}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                <p>
+                  <strong>Closed: {review.decision.candleEvidence.closed ? 'Yes' : 'No'}</strong> ·
+                  Source marked complete:{' '}
+                  {review.decision.candleEvidence.sourceComplete ? 'Yes' : 'No'}
+                </p>
+                <small>
+                  Source: {review.decision.candleEvidence.source}. Values are the recorded candle
+                  used by this review, not the current mark.
+                </small>
+              </section>
+            ) : (
+              <p>
+                No candle snapshot is available for this review. Older history is not backfilled;
+                run a fresh review.
+              </p>
+            )}
             {!!review.decision.failed?.length && (
               <div role="note" aria-label="Conditions preventing execution">
                 <strong>Conditions preventing execution</strong>
@@ -635,7 +720,18 @@ export function OwnerExecution({
             Verified strategy transaction: {evidence.hash} · {evidence.state}
           </p>
         )}
-        {busy && <p role="status">Checking live chain data and strategy policy…</p>}
+        {busy && (
+          <p role="status">
+            {operation}… {Math.max(0, Math.floor((now - startedAt) / 1000))}s elapsed.
+            {now - startedAt >= 10000 && (
+              <>
+                {' '}
+                Still waiting for RPC/indexer reads and complete risk accounting. This review does
+                not send a transaction.
+              </>
+            )}
+          </p>
+        )}
         {hosted && history.length > 0 && (
           <details>
             <summary>Recent strategy reviews ({history.length})</summary>
@@ -653,6 +749,9 @@ export function OwnerExecution({
                     {d.configRevision !== undefined && <>revision {d.configRevision} · </>}
                     {saved.some((c) => c.id === d.agentId && c.revision !== d.configRevision) && (
                       <strong>Stale — configuration changed · </strong>
+                    )}
+                    {(invalidations[wallet.address?.toLowerCase() ?? ''] ?? []).includes(d.id) && (
+                      <strong>Stale — wallet account or network changed · </strong>
                     )}
                     {new Date(d.evaluatedAt).toLocaleString()}
                     <p>{d.rationale}</p>

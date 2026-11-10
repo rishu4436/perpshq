@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-const baseURL = process.env.PERPSHQ_TEST_URL ?? 'http://127.0.0.1:3000';
+const baseURL = process.env.PERPSHQ_TEST_URL ?? 'http://127.0.0.1:3107';
 const channel = process.platform === 'win32' ? 'msedge' : undefined;
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -26,6 +26,7 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   webServer: {
     command: 'npm run dev',
+    env: { PORT: new URL(baseURL).port || '3107' },
     url: baseURL + '/api/health',
     reuseExistingServer: true,
     timeout: 60000,

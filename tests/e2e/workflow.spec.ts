@@ -109,7 +109,7 @@ test('every navigation destination renders and mobile has no page overflow', asy
 test('watchlist and alert rules persist through reload', async ({ page }) => {
   await mocks(page);
   await page.goto('/app');
-  await page.getByRole('button', { name: 'Watch BTC-PERP', exact: true }).click();
+  await page.getByRole('button', { name: 'Add BTC-PERP to watchlist', exact: true }).click();
   await page.getByRole('button', { name: /Watchlist 1/ }).click();
   await expect(page.getByRole('button', { name: 'Analyze ETH-PERP' })).toHaveCount(0);
   await nav(page, 'Positions & Risk');

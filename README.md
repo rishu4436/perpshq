@@ -10,6 +10,8 @@ Live website: **https://perpshq.vercel.app** · [Open workspace](https://perpshq
 
 Latest follow-up: [live QA fixes and remaining verification](docs/LIVE-QA-FIXES-2026-11-10.md). Testnet funding/deposit review is at https://perpshq.vercel.app/testnet-collateral.html; a claim can still be rejected by protocol eligibility rules.
 
+Second retest: [candle evidence, network history labels and usability fixes](docs/LIVE-QA-FOLLOWUP-2026-11-10.md).
+
 Manual BTC open/close, a Trend entry and Guardian cancellation have verified Hideki receipts. Breakout and Mean Reversion have not produced a qualifying live entry during the observed tests. Autonomous execution and native atomic reduce-only exits remain unavailable. Hosted Agent Studio supports wallet sign-in, private saved configurations, live strategy reviews, connected-wallet execution and persistent receipt recovery. Independent worker controls remain local.
 
 ## Run locally

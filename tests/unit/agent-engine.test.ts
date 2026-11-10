@@ -66,6 +66,34 @@ describe('versioned no-code configuration', () => {
   });
 });
 describe('deterministic signal engine', () => {
+  it('records the exact evaluated candle values, source and UTC close boundary', () => {
+    const f = agentFixture(),
+      candle = f.detail.candles.at(-1)!;
+    const decision = evaluateAgent(f.config, f.observation, f.runtime, agentNow);
+    expect(decision.candleEvidence).toMatchObject({
+      marketId: candle.market,
+      timeframe: candle.timeframe,
+      openTime: candle.time,
+      closeTime: candle.time + 900,
+      open: candle.open,
+      high: candle.high,
+      low: candle.low,
+      close: candle.close,
+      volume: candle.volume,
+      closed: true,
+      sourceComplete: true,
+      source: candle.source,
+    });
+    candle.close += 1;
+    expect(decision.candleEvidence?.close).not.toBe(candle.close);
+  });
+  it('never labels an unfinished source candle as closed', () => {
+    const f = agentFixture();
+    f.detail.candles.at(-1)!.complete = false;
+    const decision = evaluateAgent(f.config, f.observation, f.runtime, agentNow);
+    expect(decision.candleEvidence?.closed).toBe(false);
+    expect(decision.type).toBe('DATA_UNAVAILABLE');
+  });
   it('rejects a gap even when a caller marks the source fresh', () => {
     const f = agentFixture();
     f.detail.candles.splice(-20, 1);

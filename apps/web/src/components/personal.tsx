@@ -368,6 +368,7 @@ export function Journal({
 }) {
   const [filter, setFilter] = useState('');
   const [tagDrafts, setTagDrafts] = useState<Record<string, string>>({});
+  const [deleteEntry, setDeleteEntry] = useState<string>();
   const update = (id: string, key: keyof JournalEntry, value: unknown) =>
     setEntries((v) => v.map((e) => (e.id === id ? { ...e, [key]: value } : e)));
   return (
@@ -427,11 +428,40 @@ export function Journal({
                   <button
                     className="icon-button"
                     title="Delete journal entry"
-                    onClick={() => setEntries((v) => v.filter((x) => x.id !== e.id))}
+                    aria-label={`Delete journal entry for ${e.market}`}
+                    onClick={() => setDeleteEntry(e.id)}
                   >
                     <X size={15} />
                   </button>
                 </div>
+                {deleteEntry === e.id && (
+                  <div
+                    className="notice danger"
+                    role="alertdialog"
+                    aria-label="Confirm journal deletion"
+                  >
+                    <p>
+                      Delete this journal entry? Its thesis, tags and saved context will be removed
+                      from this browser.
+                    </p>
+                    <button
+                      className="secondary"
+                      autoFocus
+                      onClick={() => setDeleteEntry(undefined)}
+                    >
+                      Keep entry
+                    </button>
+                    <button
+                      className="secondary"
+                      onClick={() => {
+                        setEntries((v) => v.filter((x) => x.id !== e.id));
+                        setDeleteEntry(undefined);
+                      }}
+                    >
+                      Confirm delete entry
+                    </button>
+                  </div>
+                )}
                 <div className="form-body">
                   {e.context && (
                     <details className="journal-context">

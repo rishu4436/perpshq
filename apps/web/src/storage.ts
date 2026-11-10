@@ -111,6 +111,10 @@ const journal = z
   })
   .passthrough();
 const schemas: Record<string, z.ZodType> = {
+  'perpshq.ownerReviewInvalidations': z.record(
+    z.string().regex(/^0x[a-f0-9]{40}$/),
+    z.array(text).max(100),
+  ),
   'perpshq.market': text,
   'perpshq.timeframe': tf,
   'perpshq.readAddress': text,

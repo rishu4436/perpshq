@@ -22,17 +22,24 @@ export async function observeAgent(
     sdk.client.getIndexerFreshness(50383),
   ]);
   const frames: NonNullable<AgentObservation['frames']> = { [c.timeframes[0]]: primary };
-  for (const tf of c.timeframes.slice(1)) frames[tf] = await detail(c.marketId, tf);
+  await Promise.all(
+    c.timeframes.slice(1).map(async (tf) => {
+      frames[tf] = await detail(c.marketId, tf);
+    }),
+  );
   let chainAccount: AgentAccount | undefined;
   if (c.ownerAddress) {
-    const m = await marketById(c.marketId),
-      a = await account(c.ownerAddress as `0x${string}`),
-      constraints = await sdk.client.getPerpMaxLeverage({
+    const m = await marketById(c.marketId);
+    const [a, constraints, permissions, allMarkets] = await Promise.all([
+      account(c.ownerAddress as `0x${string}`),
+      sdk.client.getPerpMaxLeverage({
         pool: m.poolAddress,
         marginBank: m.marginBank,
         account: c.ownerAddress as `0x${string}`,
-      });
-    const permissions = c.operatorAddress ? await readPermissions(c, m) : null;
+      }),
+      c.operatorAddress ? readPermissions(c, m) : Promise.resolve(null),
+      markets(),
+    ]);
     const errors =
       c.execution.signer === 'owner-wallet'
         ? a.errors.filter(
@@ -75,7 +82,6 @@ export async function observeAgent(
     }
     if (!a.exposure.complete || !a.openOrders || !a.analytics || !a.margin)
       errors.push('Incomplete account/position/order/margin observation');
-    const allMarkets = await markets();
     const positions = (a.analytics ?? []).flatMap((p) => {
       if (p.size === 0n) return [];
       const market = allMarkets.find((m) => m.poolAddress.toLowerCase() === p.pool.toLowerCase());
