@@ -405,11 +405,22 @@ function App() {
         </div>
         <div className="chart-price">
           <strong>{price(liveMarket?.markPrice)}</strong>
-          <small>{detail?.market.error ? 'Indexed settlement mark' : 'On-chain oracle mark'}</small>
+          <small title="The live on-chain oracle and indexed settlement snapshots are different sources with different timestamps; their prices can differ.">
+            {detail?.market.error ? 'Indexed settlement mark' : 'On-chain oracle mark'}
+          </small>
         </div>
         <button
           className="icon-button"
-          title="Add selected market to watchlist"
+          aria-label={
+            m && watch.includes(m.id)
+              ? 'Remove selected market from watchlist'
+              : 'Add selected market to watchlist'
+          }
+          title={
+            m && watch.includes(m.id)
+              ? 'Remove selected market from watchlist'
+              : 'Add selected market to watchlist'
+          }
           onClick={() => m && toggleWatch(m.id)}
         >
           <Star size={17} fill={m && watch.includes(m.id) ? 'currentColor' : 'none'} />
@@ -428,7 +439,12 @@ function App() {
           ))}
         </div>
         <span className="muted chart-source">Perp fills / UTC</span>
-        <button className="icon-button" onClick={() => dq.refetch()} title="Refresh chart">
+        <button
+          className="icon-button"
+          aria-label="Refresh chart"
+          onClick={() => dq.refetch()}
+          title="Refresh chart"
+        >
           <RefreshCw size={14} className={dq.isFetching ? 'spin' : ''} />
         </button>
       </div>
@@ -807,7 +823,11 @@ function App() {
           <div className="topbar-right">
             <span className="network-pill">
               <Globe size={12} />
-              Somnia Hideki
+              {wallet.address
+                ? wallet.correct
+                  ? 'Wallet: Hideki'
+                  : `Wallet chain: ${wallet.chain ?? 'unknown'}`
+                : 'Data: Somnia Hideki'}
               <ChevronDown size={11} />
             </span>
             <button className="health" onClick={() => go('Settings & Help')}>
@@ -879,7 +899,7 @@ function App() {
             <div className="header-actions">
               <span className="testnet-label">
                 <span />
-                HIDEKI / 50383
+                DATA: HIDEKI / 50383
               </span>
               <button
                 className="secondary"
@@ -914,6 +934,12 @@ function App() {
             </div>
           </nav>
           <ErrorNote error={wallet.error ?? (noticeError || null)} />
+          {wallet.address && !wallet.correct && (
+            <div role="alert" className="notice danger">
+              Wallet network: {wallet.chain ?? 'unknown'}. Switch to Hideki (50383). Market data
+              remains on Hideki.
+            </div>
+          )}
           <ErrorNote error={mq.error} />
           {page === 'Command Center' && (
             <>

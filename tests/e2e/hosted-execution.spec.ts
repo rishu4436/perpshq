@@ -82,6 +82,8 @@ async function hostedMocks(page: Page, execute = false) {
             decision: {
               id: crypto.randomUUID(),
               strategy: c.strategy,
+              agentId: c.id,
+              configRevision: c.revision,
               type: 'NO_ACTION',
               evaluatedAt: Date.now(),
               rationale: 'AUTOMATED TEST FIXTURE: no qualifying signal',
@@ -97,6 +99,8 @@ async function hostedMocks(page: Page, execute = false) {
           decision: {
             id: crypto.randomUUID(),
             strategy: c.strategy,
+            agentId: c.id,
+            configRevision: c.revision,
             type: guardian ? 'CANCEL_CANDIDATE' : 'ENTRY_CANDIDATE',
             evaluatedAt: Date.now(),
             rationale: 'AUTOMATED TEST FIXTURE: prepared proposal',
@@ -179,6 +183,61 @@ test('all four hosted templates review real-shaped decisions without opening a w
   await page.getByRole('button', { name: 'Save wallet strategy' }).click();
   await expect(page.getByLabel('Saved wallet strategies')).toBeVisible();
 });
+test('configuration validation is readable and a revised configuration marks old reviews stale', async ({
+  page,
+}) => {
+  await hostedMocks(page);
+  await page.getByRole('button', { name: 'Load owner strategy configuration' }).click();
+  const input = page.getByLabel('Owner strategy configuration');
+  const c = JSON.parse(await input.inputValue()) as AgentConfig;
+  c.risk.leverage = 100;
+  await input.fill(JSON.stringify(c));
+  await page.getByRole('button', { name: 'Save wallet strategy' }).click();
+  await expect(page.getByText(/maximum verified leverage/)).toBeVisible();
+  c.risk.leverage = 1;
+  c.risk.orderNotional = '';
+  await input.fill(JSON.stringify(c));
+  await page.getByRole('button', { name: 'Save wallet strategy' }).click();
+  await expect(page.getByText(/risk.orderNotional: Required/)).toBeVisible();
+  c.risk.orderNotional = '50';
+  await input.fill(JSON.stringify(c));
+  await page.getByRole('button', { name: 'Save wallet strategy' }).click();
+  await page.getByRole('button', { name: 'Review live owner strategy' }).click();
+  await expect(page.getByRole('heading', { name: 'NO ACTION', exact: true })).toBeVisible();
+  const updated = JSON.parse(await input.inputValue()) as AgentConfig;
+  updated.name = 'Changed settings';
+  await input.fill(JSON.stringify(updated));
+  await page.getByRole('button', { name: 'Save wallet strategy' }).click();
+  await page.getByText(/Recent strategy reviews/).click();
+  await expect(page.getByText(/Stale — configuration changed/)).toBeVisible();
+});
+for (const emit of [true, false])
+  test(`network changes invalidate the review (${emit ? 'wallet event' : 'poll fallback'})`, async ({
+    page,
+  }) => {
+    await hostedMocks(page);
+    await page.getByRole('button', { name: 'Load owner strategy configuration' }).click();
+    await page.getByRole('button', { name: 'Review live owner strategy' }).click();
+    await expect(page.getByRole('heading', { name: 'NO ACTION', exact: true })).toBeVisible();
+    await page.evaluate(
+      (emit) =>
+        (
+          window as unknown as { __setWalletChain: (chain: string, emit: boolean) => void }
+        ).__setWalletChain('0x1', emit),
+      emit,
+    );
+    await expect(page.getByRole('alert').filter({ hasText: 'Wallet network:' })).toContainText(
+      '1',
+      { timeout: 10000 },
+    );
+    await expect(page.getByRole('heading', { name: 'NO ACTION', exact: true })).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Switch to Hideki', exact: true }).first(),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(() => (window as unknown as { __walletCalls: string[] }).__walletCalls),
+    ).not.toContain('eth_sendTransaction');
+  });
 for (const strategy of [
   'multi-timeframe-trend',
   'support-resistance-breakout',

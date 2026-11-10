@@ -59,11 +59,20 @@ export function recordActivity(entry: Omit<ActivityEntry, 'id' | 'at'>) {
   void flushActivity();
 }
 let flushing = false;
+let localActivity: Promise<boolean> | undefined;
 export async function flushActivity() {
   if (flushing) return;
   flushing = true;
   try {
     const pending = loadStored<ActivityEntry[]>(localStorage, key, []);
+    if (!pending.length) return;
+    localActivity ??= api<{ publicHosted?: boolean }>('/workspace')
+      .then((s) => !s.publicHosted)
+      .catch((error) => {
+        localActivity = undefined;
+        throw error;
+      });
+    if (!(await localActivity)) return;
     for (const event of pending) {
       await api('/workspace/activity', event);
       const latest = loadStored<ActivityEntry[]>(localStorage, key, []);

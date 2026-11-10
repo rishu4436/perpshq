@@ -53,6 +53,12 @@ export function ReadinessChecklist({
         ))}
       </div>
       <p className="control-footnote">
+        <a href="/testnet-collateral.html">Fund testnet collateral / review margin deposit</a> ·
+        USDso in your wallet must be deposited into the perps bank. Hideki STT is required
+        separately for gas. Claim eligibility is checked by simulation; a protocol rejection cannot
+        be bypassed.
+      </p>
+      <p className="control-footnote">
         Readiness is a planning check. The final preview and wallet approval apply to one exact
         order. Planned stops are not armed protective orders.
       </p>

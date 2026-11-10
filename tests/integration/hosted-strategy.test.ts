@@ -6,7 +6,7 @@ import { MemoryDocuments } from '../hosted-fixtures';
 const mocks = vi.hoisted(() => ({ review: vi.fn(), transaction: vi.fn(), receipt: vi.fn() }));
 vi.mock('../../apps/api/src/owner-review', () => ({ prepareOwnerReview: mocks.review }));
 vi.mock('../../packages/dreamdex-adapter', () => ({
-  marketById: async () => ({}),
+  marketById: async () => ({ maxLeverage: 20, symbol: 'BTC-PERP' }),
   rpc: { verifyMessage: async () => false, getTransaction: mocks.transaction },
   receipt: mocks.receipt,
 }));
@@ -152,6 +152,14 @@ it('stores versioned owned configurations and refuses stale revisions', async ()
   c.revision++;
   expect((await send('/configs', { config: c })).status).toBe(200);
   expect(((await send('/configs')).body.configs as { revision: number }[])[0].revision).toBe(2);
+});
+it('refuses leverage above the verified market maximum before saving a revision', async () => {
+  const c = config();
+  c.risk.leverage = 100;
+  const result = await send('/configs', { config: c });
+  expect(result.status).toBe(422);
+  expect(result.body.error).toContain('maximum verified leverage');
+  expect((await send('/configs')).body.configs).toEqual([]);
 });
 it('reviews saved JSONB configurations after key reordering and still rejects changed values', async () => {
   const c = config();

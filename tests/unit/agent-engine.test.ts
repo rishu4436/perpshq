@@ -4,6 +4,19 @@ import { agentConfigSchema, LIVE_BROADCAST_ENABLED } from '../../packages/agent-
 import { evaluateAgent } from '../../packages/agent-engine';
 import { assessRisk, sizeProposal } from '../../packages/agent-risk';
 describe('versioned no-code configuration', () => {
+  it('reports required risk amounts without throwing a DecimalError', () => {
+    const { config } = agentFixture();
+    config.risk.orderNotional = '';
+    const result = agentConfigSchema.safeParse(config);
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.issues).toContainEqual(
+        expect.objectContaining({
+          path: ['risk', 'orderNotional'],
+          message: expect.stringContaining('Required'),
+        }),
+      );
+  });
   it('accepts safe dry-run defaults without any wallet or key', () => {
     const { config } = agentFixture();
     expect(agentConfigSchema.parse(config).mode).toBe('DRY_RUN');

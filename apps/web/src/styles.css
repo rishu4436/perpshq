@@ -2295,7 +2295,10 @@ footer a {
     font-size: 7px;
   }
   .chart-panel .panel-head > .icon-button {
-    display: none;
+    display: inline-flex;
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
   }
   .chart-toolbar {
     padding: 9px;

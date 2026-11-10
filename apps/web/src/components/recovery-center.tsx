@@ -16,6 +16,7 @@ import { ReadinessChecklist } from './readiness-checklist';
 import { api, download, errorMessage, fmt, type AccountData } from '../lib';
 import type { useWallet } from '../wallet';
 import { flushActivity, type ActivityEntry } from '../activity';
+import { ReceiptLookup } from './receipt-lookup';
 import { Badge, ErrorNote } from './ui';
 import { exportBrowserStorage } from '../storage';
 import './recovery-center.css';
@@ -188,6 +189,7 @@ export default function RecoveryCenter({
           </button>
         </section>
         <ReadinessChecklist wallet={wallet} account={account} market={market} />
+        <ReceiptLookup account={wallet.address ?? account?.address} market={market} />
       </div>
     );
   return (

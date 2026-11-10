@@ -29,6 +29,7 @@ export function useWallet() {
     );
   const revision = useRef(0),
     inFlight = useRef(false);
+  const identity = useRef<{ address?: string; chain?: number }>({});
   useEffect(() => discoverWalletProvider(window, window.ethereum, setProvider), []);
   useEffect(() => {
     const changed = () => setSubmission(readSubmission(localStorage));
@@ -40,35 +41,97 @@ export function useWallet() {
     if (!p) return;
     let active = true;
     revision.current++;
+    identity.current = {};
     setAddress(undefined);
     setChain(undefined);
     const accounts = (a: unknown) => {
       if (!active) return;
+      const address = Array.isArray(a) && typeof a[0] === 'string' ? a[0] : undefined;
+      if (identity.current.address === address) return;
       revision.current++;
-      setAddress((a as string[])[0]);
+      identity.current.address = address;
+      setAddress(address);
     };
     const network = (a: unknown) => {
       if (!active) return;
+      const chain = Number(a);
+      if (identity.current.chain === chain) return;
       revision.current++;
-      setChain(Number(a));
+      identity.current.chain = chain;
+      setChain(chain);
     };
-    void p
-      .request({ method: 'eth_accounts' })
-      .then(accounts)
-      .catch(() => {});
-    void p
-      .request({ method: 'eth_chainId' })
-      .then(network)
-      .catch(() => {});
+    const refresh = async () => {
+      const version = revision.current;
+      try {
+        const [a, chain] = await Promise.all([
+          p.request({ method: 'eth_accounts' }),
+          p.request({ method: 'eth_chainId' }),
+        ]);
+        if (!active || version !== revision.current) return;
+        accounts(a);
+        network(chain);
+      } catch {
+        /* A failed poll cannot prove a new wallet identity. Signing checks independently. */
+      }
+    };
+    void refresh();
+    const poll = setInterval(() => void refresh(), 3000);
+    const focus = () => void refresh();
+    window.addEventListener('focus', focus);
+    document.addEventListener('visibilitychange', focus);
     p.on?.('accountsChanged', accounts);
     p.on?.('chainChanged', network);
+    const disconnected = () => {
+      if (!active) return;
+      revision.current++;
+      identity.current = {};
+      setAddress(undefined);
+      setChain(undefined);
+    };
+    p.on?.('disconnect', disconnected);
     return () => {
       active = false;
       revision.current++;
       p.removeListener?.('accountsChanged', accounts);
       p.removeListener?.('chainChanged', network);
+      p.removeListener?.('disconnect', disconnected);
+      clearInterval(poll);
+      window.removeEventListener('focus', focus);
+      document.removeEventListener('visibilitychange', focus);
     };
   }, [provider]);
+  async function checkConnection() {
+    const p = providerRef.current,
+      version = revision.current;
+    if (!p || !address) throw new Error('Connect your owner wallet first');
+    const [actualAccounts, actualChain] = await Promise.all([
+      p.request({ method: 'eth_accounts' }),
+      p.request({ method: 'eth_chainId' }),
+    ]);
+    if (p !== providerRef.current || version !== revision.current)
+      throw new Error('Wallet changed. Review again.');
+    const currentAddress = Array.isArray(actualAccounts)
+      ? (actualAccounts[0] as string | undefined)
+      : undefined;
+    const currentChain = Number(actualChain);
+    if (currentAddress?.toLowerCase() !== address.toLowerCase() || currentChain !== chain) {
+      revision.current++;
+      identity.current = { address: currentAddress, chain: currentChain };
+      setAddress(currentAddress);
+      setChain(currentChain);
+      throw new Error(
+        currentChain !== NETWORK.id
+          ? 'Switch your wallet to Hideki (50383), then review again.'
+          : 'Wallet account changed. Review again.',
+      );
+    }
+    if (currentChain !== NETWORK.id)
+      throw new Error('Switch your wallet to Hideki (50383), then review again.');
+    return () => {
+      if (p !== providerRef.current || version !== revision.current)
+        throw new Error('Wallet changed while checking. Review again.');
+    };
+  }
   async function connect() {
     try {
       setError(undefined);
@@ -80,7 +143,10 @@ export function useWallet() {
       const a = (await p.request({ method: 'eth_requestAccounts' })) as string[];
       if (p !== providerRef.current) throw new Error('Wallet provider changed. Connect again.');
       setAddress(a[0]);
-      setChain(Number(await p.request({ method: 'eth_chainId' })));
+      const nextChain = Number(await p.request({ method: 'eth_chainId' }));
+      identity.current = { address: a[0], chain: nextChain };
+      revision.current++;
+      setChain(nextChain);
     } catch (e) {
       setError(errorMessage(e));
     }
@@ -194,6 +260,7 @@ export function useWallet() {
     chain,
     error,
     connect,
+    checkConnection,
     switchChain,
     signMessage,
     send,

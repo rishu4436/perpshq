@@ -708,6 +708,10 @@ export function AccountOverview({
         <code>{address}</code>
         <Badge>{m?.marginStatus ?? 'Unavailable'}</Badge>
       </div>
+      <p className="notice">
+        <a href="/testnet-collateral.html">Fund testnet collateral or deposit USDso</a>. Wallet
+        tokens and margin-bank collateral are separate balances. Use STT on Hideki (50383) for gas.
+      </p>
       <div className="metrics">
         <Metric
           label="Account equity"

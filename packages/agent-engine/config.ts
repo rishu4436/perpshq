@@ -6,10 +6,12 @@ const address = z
   .refine((v) => !/^0x0{40}$/i.test(v), 'Zero address is not an account');
 const money = z
   .string()
+  .min(1, 'Required: enter a positive decimal amount')
   .max(40)
-  .regex(/^\d+(\.\d+)?$/)
+  .regex(/^\d+(\.\d+)?$/, 'Enter a plain positive decimal amount')
   .refine(
-    (v) => new Decimal(v).gt(0) && new Decimal(v).lte('1000000000000000'),
+    (v) =>
+      /^\d+(\.\d+)?$/.test(v) && new Decimal(v).gt(0) && new Decimal(v).lte('1000000000000000'),
     'Use a positive bounded decimal',
   );
 export const agentConfigSchema = z
@@ -130,9 +132,15 @@ export const agentConfigSchema = z
     if (c.conditions.flattenHealth >= c.conditions.reduceHealth)
       fail(['conditions', 'flattenHealth'], 'Flatten threshold must be below reduce threshold');
     if (
-      new Decimal(c.risk.orderNotional).gt(c.risk.maxOrderNotional) ||
-      new Decimal(c.risk.maxOrderNotional).gt(c.risk.maxMarketExposure) ||
-      new Decimal(c.risk.maxMarketExposure).gt(c.risk.maxTotalExposure)
+      [
+        c.risk.orderNotional,
+        c.risk.maxOrderNotional,
+        c.risk.maxMarketExposure,
+        c.risk.maxTotalExposure,
+      ].every((v) => /^\d+(\.\d+)?$/.test(v)) &&
+      (new Decimal(c.risk.orderNotional).gt(c.risk.maxOrderNotional) ||
+        new Decimal(c.risk.maxOrderNotional).gt(c.risk.maxMarketExposure) ||
+        new Decimal(c.risk.maxMarketExposure).gt(c.risk.maxTotalExposure))
     )
       fail(['risk'], 'Require order size ≤ order cap ≤ market cap ≤ total cap');
     if (

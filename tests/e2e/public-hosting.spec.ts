@@ -19,7 +19,7 @@ test('public hosting shows strategy evidence without exposing shared worker cont
   await page.goto('/app#Agent%20Studio');
   await expect(
     page.getByRole('heading', { name: 'Four strategies. Visible reasoning.' }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 30000 });
   await expect(page.getByText('Verified testnet entry', { exact: true })).toBeVisible();
   await expect(page.getByText('Live entry not yet verified', { exact: true })).toHaveCount(2);
   await expect(page.getByRole('button', { name: 'Load owner strategy configuration' })).toHaveCount(
@@ -33,7 +33,9 @@ test('public recovery exports browser records without a shared server backup', a
   await page.route('**/api/workspace', (route) => route.fulfill({ json: { publicHosted: true } }));
   await page.goto('/app');
   await nav(page, 'Recovery Center');
-  await expect(page.getByRole('heading', { name: 'Your wallet. Your workspace.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your wallet. Your workspace.' })).toBeVisible({
+    timeout: 30000,
+  });
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Export browser backup' }).click();
   expect((await download).suggestedFilename()).toBe('perpshq-browser-backup.json');

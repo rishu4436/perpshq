@@ -234,6 +234,12 @@ const input: PlanInput = {
   slippageBps: '10',
 };
 describe('risk, raw precision and order lifecycle', () => {
+  it('rejects an explicit fractional lot while preserving downward sizing for calculated quantities', () => {
+    expect(planTrade({ ...input, quantity: '0.000135' }, m).errors.join()).toContain(
+      'exact multiple',
+    );
+    expect(planTrade(input, m).errors.join()).not.toContain('exact multiple');
+  });
   it('converts 24-decimal amounts without precision loss', () => {
     const value = '0.000000000000000000000001';
     expect(toRaw(value, 24)).toBe(1n);

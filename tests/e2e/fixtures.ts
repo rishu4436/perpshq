@@ -38,6 +38,14 @@ export async function mocks(page: Page, wrongChain = false, outcome = 'success')
     ({ account, wrongChain, outcome }) => {
       const calls: string[] = [];
       let connected = false;
+      let chain = wrongChain ? '0x1' : '0xc4cf';
+      const listeners = new Map<string, Set<(value: unknown) => void>>();
+      (
+        window as unknown as { __setWalletChain: (chain: string, emit?: boolean) => void }
+      ).__setWalletChain = (next, emit = true) => {
+        chain = next;
+        if (emit) listeners.get('chainChanged')?.forEach((listener) => listener(next));
+      };
       (window as unknown as { __walletCalls: string[] }).__walletCalls = calls;
       (window as unknown as { ethereum: unknown }).ethereum = {
         request: async ({ method }: { method: string }) => {
@@ -47,7 +55,7 @@ export async function mocks(page: Page, wrongChain = false, outcome = 'success')
             connected = true;
             return [account];
           }
-          if (method === 'eth_chainId') return wrongChain ? '0x1' : '0xc4cf';
+          if (method === 'eth_chainId') return chain;
           if (method === 'eth_sendTransaction') {
             if (outcome === 'rejected')
               throw { code: 4001, message: 'User rejected signature (AUTOMATED TEST)' };
@@ -57,8 +65,13 @@ export async function mocks(page: Page, wrongChain = false, outcome = 'success')
           }
           return null;
         },
-        on() {},
-        removeListener() {},
+        on(event: string, callback: (value: unknown) => void) {
+          if (!listeners.has(event)) listeners.set(event, new Set());
+          listeners.get(event)!.add(callback);
+        },
+        removeListener(event: string, callback: (value: unknown) => void) {
+          listeners.get(event)?.delete(callback);
+        },
       };
     },
     { account, wrongChain, outcome },

@@ -162,6 +162,7 @@ export function Portfolio({
   loading: boolean;
   markets: Market[];
 }) {
+  const [rangeDays, setRangeDays] = useState('all');
   const [snapshots, setSnapshots] = useStored<{ account: string; time: number; equity: number }[]>(
     'perpshq.equitySnapshots',
     [],
@@ -180,13 +181,34 @@ export function Portfolio({
         ].slice(-1000);
       });
   }, [a?.fetchedAt]);
-  const data = snapshots.filter((v) => v.account === address);
-  const realized = a?.changes?.reduce((s, v) => s + (raw(v.realizedPnl, a.quoteDecimals) ?? 0), 0);
+  const since = rangeDays === 'all' ? 0 : Date.now() - Number(rangeDays) * 86400000;
+  const data = snapshots.filter((v) => v.account === address && v.time >= since);
+  const fills = a?.fills?.filter((v) => Number(v.timestamp) * 1000 >= since);
+  const changes = a?.changes?.filter((v) => Number(v.timestamp) * 1000 >= since);
+  const funding = a?.fundingPayments?.filter((v) => Number(v.timestamp) * 1000 >= since);
+  const realized = changes?.reduce((s, v) => s + (raw(v.realizedPnl, a!.quoteDecimals) ?? 0), 0);
   return (
     <>
       <AccountOverview account={a} address={address} connect={connect} loading={loading} />
       {address && (
         <>
+          <label className="field">
+            <span>Filter loaded history</span>
+            <select
+              aria-label="Portfolio history range"
+              value={rangeDays}
+              onChange={(e) => setRangeDays(e.target.value)}
+            >
+              <option value="all">All loaded records</option>
+              <option value="1">Last 24 hours</option>
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+            </select>
+            <small>
+              This filters loaded records and browser observations. It does not fetch a complete
+              historical account ledger.
+            </small>
+          </label>
           <div className="analysis-grid">
             <section className="panel">
               <div className="panel-head">
@@ -215,29 +237,30 @@ export function Portfolio({
               </div>
               <div className="panel-copy">
                 <div className="summary-row">
-                  <span>Realized P&L in latest 100 changes</span>
+                  <span>Realized P&L in loaded changes · selected range</span>
                   <strong>{price(realized)}</strong>
                 </div>
                 <div className="summary-row">
                   <span>Indexed fills loaded</span>
-                  <strong>{a?.fills?.length ?? '—'}</strong>
+                  <strong>{fills?.length ?? '—'}</strong>
                 </div>
                 <div className="summary-row">
                   <span>Closed-trade win rate</span>
                   <strong>Unavailable</strong>
                 </div>
                 <div className="summary-row">
-                  <span>Funding cash flow (latest 100)</span>
+                  <span>Funding cash flow · loaded selected range</span>
                   <strong>
-                    {a?.fundingPayments
+                    {funding
                       ? price(
-                          -a.fundingPayments.reduce(
-                            (s, v) => s + (raw(v.amount, a.quoteDecimals) ?? 0),
-                            0,
-                          ),
+                          -funding.reduce((s, v) => s + (raw(v.amount, a!.quoteDecimals) ?? 0), 0),
                         )
                       : 'Unavailable'}
                   </strong>
+                </div>
+                <div className="summary-row">
+                  <span>Fees / net-of-fee performance</span>
+                  <strong>Unavailable in this loaded snapshot</strong>
                 </div>
                 <p>
                   Fills are execution events, not complete trades. A bounded change history cannot
@@ -245,7 +268,7 @@ export function Portfolio({
                   withdrawals also affect equity.
                 </p>
                 <a className="secondary" href="#Recovery%20Center">
-                  Open Recovery Center for verified range accounting
+                  Open Recovery Center for accounting availability
                 </a>
               </div>
             </section>
@@ -255,15 +278,13 @@ export function Portfolio({
               <h3>Verified fill history</h3>
               <button
                 className="secondary"
-                onClick={() =>
-                  download('perpshq-fills.json', JSON.stringify(a?.fills ?? [], null, 2))
-                }
+                onClick={() => download('perpshq-fills.json', JSON.stringify(fills ?? [], null, 2))}
               >
                 <Download size={14} />
                 Export
               </button>
             </div>
-            {a?.fills?.length ? (
+            {fills?.length ? (
               <div className="table-scroll">
                 <table>
                   <thead>
@@ -276,7 +297,7 @@ export function Portfolio({
                     </tr>
                   </thead>
                   <tbody>
-                    {a.fills.map((f) => {
+                    {fills.map((f) => {
                       const m = markets.find((v) => v.id === f.pool);
                       return (
                         <tr key={f.id}>
@@ -346,6 +367,7 @@ export function Journal({
   go: (p: Page, id?: string) => void;
 }) {
   const [filter, setFilter] = useState('');
+  const [tagDrafts, setTagDrafts] = useState<Record<string, string>>({});
   const update = (id: string, key: keyof JournalEntry, value: unknown) =>
     setEntries((v) => v.map((e) => (e.id === id ? { ...e, [key]: value } : e)));
   return (
@@ -451,8 +473,9 @@ export function Journal({
                       <span>Tags (comma separated)</span>
                       <input
                         aria-label="Journal tags"
-                        value={e.tags.join(', ')}
-                        onChange={(v) =>
+                        value={tagDrafts[e.id] ?? e.tags.join(', ')}
+                        onChange={(v) => {
+                          setTagDrafts((old) => ({ ...old, [e.id]: v.target.value }));
                           update(
                             e.id,
                             'tags',
@@ -460,8 +483,8 @@ export function Journal({
                               .split(',')
                               .map((t) => t.trim())
                               .filter(Boolean),
-                          )
-                        }
+                          );
+                        }}
                       />
                     </label>
                     <label className="field">
@@ -699,6 +722,7 @@ export function SettingsPanel({
   onError: (e: string) => void;
 }) {
   const [address, setAddress] = useState(watchAddress);
+  const [addressError, setAddressError] = useState('');
   const diagnostics = useQuery({
     queryKey: ['diagnostics'],
     queryFn: () =>
@@ -728,12 +752,14 @@ export function SettingsPanel({
               className="read-address"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (address && !/^0x[0-9a-fA-F]{40}$/.test(address)) {
-                  onError('Enter a complete 0x wallet address.');
+                const trimmed = address.trim();
+                if (trimmed && !/^0x[0-9a-fA-F]{40}$/.test(trimmed)) {
+                  setAddressError('Enter a complete 0x wallet address.');
                   return;
                 }
+                setAddressError('');
                 onError('');
-                setWatchAddress(address);
+                setWatchAddress(trimmed);
               }}
             >
               <label className="field">
@@ -742,8 +768,18 @@ export function SettingsPanel({
                   aria-label="Read-only account address"
                   placeholder="0x…"
                   value={address}
-                  onChange={(e) => setAddress(e.target.value)}
+                  aria-invalid={!!addressError}
+                  aria-describedby={addressError ? 'read-address-error' : undefined}
+                  onChange={(e) => {
+                    setAddress(e.target.value);
+                    setAddressError('');
+                  }}
                 />
+                {addressError && (
+                  <small id="read-address-error" role="alert">
+                    {addressError}
+                  </small>
+                )}
                 <small>
                   Connected wallet takes precedence. Reading an address does not authorize signing.
                 </small>

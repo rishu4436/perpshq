@@ -40,6 +40,7 @@ export function Chart({
       autoSize: true,
       height,
       layout: {
+        attributionLogo: false,
         background: { type: ColorType.Solid, color: '#151914' },
         textColor: '#b0b8aa',
         fontFamily: 'DM Sans Variable, sans-serif',
@@ -206,12 +207,20 @@ export function Chart({
     current.key = key;
   }, [candles, analysis, overlays, height]);
   return (
-    <div
-      className="chart"
-      ref={ref}
-      style={{ height }}
-      role="img"
-      aria-label="Interactive dreamDEX perpetual candlestick chart with enabled overlays"
-    />
+    <>
+      <div
+        className="chart"
+        ref={ref}
+        style={{ height }}
+        role="img"
+        aria-label="Interactive dreamDEX perpetual candlestick chart with enabled overlays"
+      />
+      <small className="muted">
+        Charts by{' '}
+        <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer">
+          TradingView Lightweight Charts
+        </a>
+      </small>
+    </>
   );
 }

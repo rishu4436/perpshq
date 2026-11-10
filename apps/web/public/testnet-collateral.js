@@ -1,9 +1,21 @@
-/* global document, fetch, AbortSignal, window, localStorage, setInterval, navigator */
+/* global document, fetch, AbortSignal, window, localStorage, setInterval, navigator, Event */
 const marketId = '0x4181dd08e73bbcdd1ba3e615a18f6abd941b94c0';
 const key = 'perpshq.collateralClaimIntent';
 const el = (id) => document.getElementById(id);
 let preview,
   busy = false;
+let provider = window.ethereum;
+let providerPinned = false;
+window.addEventListener('eip6963:announceProvider', (event) => {
+  const detail = event.detail;
+  if (
+    !providerPinned &&
+    detail?.info?.rdns === 'io.metamask' &&
+    typeof detail.provider?.request === 'function'
+  )
+    provider = detail.provider;
+});
+window.dispatchEvent(new Event('eip6963:requestProvider'));
 const message = (v) => {
   el('message').textContent = v;
 };
@@ -19,10 +31,11 @@ async function api(path, body) {
   return b;
 }
 async function identity() {
-  if (!window.ethereum) throw new Error('Open in Edge with your connected wallet.');
+  if (!provider) throw new Error('Open in Edge with your connected wallet.');
+  providerPinned = true;
   const [accounts, chain] = await Promise.all([
-    window.ethereum.request({ method: 'eth_accounts' }),
-    window.ethereum.request({ method: 'eth_chainId' }),
+    provider.request({ method: 'eth_accounts' }),
+    provider.request({ method: 'eth_chainId' }),
   ]);
   if (!accounts[0] || Number(chain) !== 50383)
     throw new Error('Connect your wallet on Hideki 50383 first.');
@@ -110,7 +123,7 @@ el('send').onclick = async () => {
       'Review and approve the ' + (preview.stage ?? 'claim') + ' transaction in your wallet.',
     );
     try {
-      const hash = await window.ethereum.request({
+      const hash = await provider.request({
         method: 'eth_sendTransaction',
         params: [
           {

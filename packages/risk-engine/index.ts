@@ -60,6 +60,10 @@ export function planTrade(input: PlanInput, market: Market): Plan {
     if (lot.lte(0) || new Decimal(market.tickSize).lte(0))
       throw new Error('Market increments unavailable');
     const raw = q.mul(base).div(lot).floor().mul(lot);
+    if (input.quantity && !q.mul(base).mod(lot).isZero())
+      errors.push(
+        `Quantity must be an exact multiple of this market’s lot size (${lot.div(base).toFixed()}). Enter an exact quantity; it will not be submitted rounded.`,
+      );
     const quantity = raw.div(base),
       priceRaw = toRaw(input.entry, market.quoteDecimals);
     if (priceRaw % BigInt(market.tickSize) !== 0n)

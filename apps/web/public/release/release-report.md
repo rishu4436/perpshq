@@ -18,6 +18,8 @@ Manual BTC open/close, Trend entry and Guardian cancellation are verified. Exact
 
 ## Release fixes and verification
 
+The follow-up [live QA fix report](LIVE-QA-FIXES-2026-11-10.md) covers wallet-network invalidation, market leverage validation, stale review labels, required amount and lot errors, journal tags, inline Settings errors, accessibility, hosted activity, chart font policy, collateral links and receipt lookup. The updated unit/integration suite passes 351 tests with five optional SDK skips. Earlier counts below describe the preceding release.
+
 Fixed production ESM resolution by compiling internal TypeScript modules into an ESM server bundle. Public mode never creates the local personal databases or exposes shared mutable worker routes. Unknown wallet outcomes, close-position guards, exact approval matching and MetaMask provider selection retain their tested behavior.
 
 The high-severity body-parser advisory was resolved by compatible dependency updates. The tooling-only minimatch advisory was resolved with a targeted patched dependency override. npm audit now reports zero known vulnerabilities; this is a dependency scan, not a formal security certification.

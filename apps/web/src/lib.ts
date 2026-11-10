@@ -52,7 +52,10 @@ export function useStored<T>(key: string, initial: T) {
 export const fmt = (v: number | null | undefined, dp = 2) =>
   v === null || v === undefined || !Number.isFinite(v)
     ? '—'
-    : v.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+    : (Number(v.toFixed(dp)) === 0 ? 0 : v).toLocaleString('en-US', {
+        minimumFractionDigits: dp,
+        maximumFractionDigits: dp,
+      });
 export const price = (v: number | null | undefined) =>
   v === null || v === undefined ? '—' : '$' + fmt(v, v < 1 ? 5 : 2);
 export const compact = (v: number | undefined) =>

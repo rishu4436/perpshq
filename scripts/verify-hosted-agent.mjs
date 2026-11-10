@@ -79,6 +79,22 @@ for (const strategy of [
     `/defaults?account=${account.address}&marketId=0x4181dd08e73bbcdd1ba3e615a18f6abd941b94c0`,
   );
   config.strategy = strategy;
+  if (strategy === 'multi-timeframe-trend') {
+    const excessive = await request(
+      '/configs',
+      { config: { ...config, risk: { ...config.risk, leverage: 100 } } },
+      422,
+    );
+    if (!excessive.error.includes('maximum verified leverage'))
+      throw new Error('Unclear leverage rejection');
+    const required = await request(
+      '/configs',
+      { config: { ...config, risk: { ...config.risk, orderNotional: '' } } },
+      400,
+    );
+    if (!required.error.includes('Required') || required.error.includes('DecimalError'))
+      throw new Error('Unclear required amount rejection');
+  }
   await request('/configs', { config });
   const result = await request('/review', { config });
   evidence.reviews.push({

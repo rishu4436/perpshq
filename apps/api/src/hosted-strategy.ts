@@ -33,7 +33,14 @@ export function hostedStrategyRouter(store: DocumentStore) {
       } catch (e) {
         res
           .status(e instanceof HostedStorageError ? 503 : e instanceof z.ZodError ? 400 : 422)
-          .json({ error: e instanceof Error ? e.message : 'Strategy request failed' });
+          .json({
+            error:
+              e instanceof z.ZodError
+                ? e.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')
+                : e instanceof Error
+                  ? e.message
+                  : 'Strategy request failed',
+          });
       }
     });
   const checkOwner = (owner: string, config: z.infer<typeof agentConfigSchema>) => {
@@ -84,6 +91,11 @@ export function hostedStrategyRouter(store: DocumentStore) {
   route('post', '/configs', async (owner, req) => {
     const c = agentConfigSchema.parse(req.body.config);
     checkOwner(owner, c);
+    const market = await marketById(c.marketId);
+    if (c.risk.leverage > (market.maxLeverage ?? 1))
+      throw new Error(
+        `risk.leverage: maximum verified leverage for ${market.symbol ?? 'this market'} is ${market.maxLeverage ?? 1}×`,
+      );
     await ledger.mutate(owner, (d) => {
       const old = d.configs[c.id];
       if (sameConfig(old?.config, c)) return;

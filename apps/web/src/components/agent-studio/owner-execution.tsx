@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { useWallet } from '../../wallet';
 import type { Market } from '../../../../../packages/shared-types';
 import type { AgentConfig, AgentDecision } from '../../../../../packages/agent-engine';
@@ -7,6 +7,7 @@ import { api, errorMessage, type Preview, type Evidence } from '../../lib';
 import { ErrorNote } from '../ui';
 import { fromRaw } from '../../../../../packages/risk-engine';
 import { assertWalletChallenge } from '../../wallet-auth';
+import { agentConfigSchema } from '../../../../../packages/agent-engine/config';
 type Review = {
   id?: string;
   config: AgentConfig;
@@ -48,6 +49,7 @@ export function OwnerExecution({
   hosted?: boolean;
 }) {
   const [now, setNow] = useState(Date.now());
+  const reviewEpoch = useRef(0);
   const [draft, setDraft] = useState(''),
     [review, setReview] = useState<Review>(),
     [consent, setConsent] = useState(false),
@@ -65,8 +67,11 @@ export function OwnerExecution({
   const authenticated =
     !hosted || (!!wallet.address && sessionOwner === wallet.address.toLowerCase());
   useEffect(() => {
+    reviewEpoch.current++;
     setReview(undefined);
     setConsent(false);
+  }, [wallet.address, wallet.chain]);
+  useEffect(() => {
     if (!hosted) return;
     let active = true;
     setSaved([]);
@@ -87,7 +92,7 @@ export function OwnerExecution({
     return () => {
       active = false;
     };
-  }, [hosted, wallet.address, wallet.chain]);
+  }, [hosted, wallet.address]);
   useEffect(() => {
     if (!hosted || !sessionOwner || sessionOwner !== wallet.address?.toLowerCase()) return;
     let active = true;
@@ -145,9 +150,30 @@ export function OwnerExecution({
     setSessionOwner(s.owner);
   }
   function edit(next: AgentConfig) {
+    reviewEpoch.current++;
     setDraft(JSON.stringify(next, null, 2));
     setReview(undefined);
     setConsent(false);
+  }
+  function parsedDraft() {
+    let value: unknown;
+    try {
+      value = JSON.parse(draft);
+    } catch {
+      throw new Error('Configuration must be valid JSON. Check commas and quotation marks.');
+    }
+    const parsed = agentConfigSchema.safeParse(value);
+    if (!parsed.success)
+      throw new Error(
+        parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '),
+      );
+    const c = parsed.data,
+      market = markets.find((m) => m.id.toLowerCase() === c.marketId.toLowerCase());
+    if (!market || c.risk.leverage > (market.maxLeverage ?? 1))
+      throw new Error(
+        `risk.leverage: maximum verified leverage for ${market?.symbol ?? 'this market'} is ${market?.maxLeverage ?? 1}×`,
+      );
+    return c;
   }
   function select(
     strategyValue: AgentConfig['strategy'],
@@ -158,7 +184,13 @@ export function OwnerExecution({
     setMarketId(marketValue);
     setTimeframe(timeframeValue);
     if (draft) {
-      const c = JSON.parse(draft) as AgentConfig;
+      let c: AgentConfig;
+      try {
+        c = parsedDraft();
+      } catch (error) {
+        setError(errorMessage(error));
+        return;
+      }
       edit({
         ...c,
         id: crypto.randomUUID(),
@@ -171,7 +203,8 @@ export function OwnerExecution({
     }
   }
   async function save() {
-    const c = JSON.parse(draft) as AgentConfig,
+    const current = await wallet.checkConnection();
+    const c = parsedDraft(),
       old = saved.find((v) => v.id === c.id);
     if (!authenticated || c.ownerAddress?.toLowerCase() !== wallet.address?.toLowerCase())
       throw new Error('Sign in with the configuration owner first');
@@ -179,6 +212,7 @@ export function OwnerExecution({
     const result = await api<{ config: AgentConfig }>('/owner-strategy/configs', {
       config: { ...c, revision: unchanged ? old.revision : (old?.revision ?? 0) + 1 },
     });
+    current();
     setSaved((v) => [...v.filter((s) => s.id !== result.config.id), result.config]);
     edit(result.config);
   }
@@ -198,26 +232,38 @@ export function OwnerExecution({
     setConsent(false);
   }
   async function validate() {
+    const current = await wallet.checkConnection(),
+      epoch = reviewEpoch.current;
     if (!authenticated) throw new Error('Sign in with your connected wallet first');
     if (pending() || wallet.blocked)
       throw new Error('Reconcile the existing wallet request before another review');
-    const config = JSON.parse(draft) as AgentConfig;
+    const config = parsedDraft();
     if (config.ownerAddress?.toLowerCase() !== wallet.address?.toLowerCase() || !wallet.correct)
       throw new Error('Configuration must match the connected owner on Hideki');
     const result = await api<Review>('/owner-strategy/review', { config });
+    await wallet.checkConnection();
+    current();
+    if (epoch !== reviewEpoch.current)
+      throw new Error('Configuration changed while reviewing. Review again.');
     setReview({ ...result, config });
     setConsent(false);
     if (hosted) setHistory((v) => [...v, result.decision].slice(-100));
   }
   async function submit() {
+    const current = await wallet.checkConnection(),
+      epoch = reviewEpoch.current;
     if (!consent || !review?.id || !review.preview || pending() || wallet.blocked)
       throw new Error('A fresh reviewed proposal and consent are required');
-    if (JSON.stringify(JSON.parse(draft)) !== JSON.stringify(review.config))
+    if (JSON.stringify(parsedDraft()) !== JSON.stringify(agentConfigSchema.parse(review.config)))
       throw new Error('Configuration changed; review again');
     const fresh = await api<Review>('/owner-strategy/review', {
       config: review.config,
       ticketId: review.id,
     });
+    await wallet.checkConnection();
+    current();
+    if (epoch !== reviewEpoch.current)
+      throw new Error('Configuration changed while reviewing. Review again.');
     if (!fresh.preview) throw new Error('Strategy no longer has an executable proposal');
     assertSameApproval(review.preview, fresh.preview);
     const intent = {
@@ -440,7 +486,7 @@ export function OwnerExecution({
         ) : (
           <button
             className="secondary"
-            disabled={busy || !authenticated}
+            disabled={busy || !authenticated || !wallet.correct}
             onClick={() => void run(load)}
           >
             Load owner strategy configuration
@@ -451,7 +497,7 @@ export function OwnerExecution({
             {hosted && (
               <button
                 className="secondary"
-                disabled={busy || !authenticated}
+                disabled={busy || !authenticated || !wallet.correct}
                 onClick={() => void run(save)}
               >
                 Save wallet strategy
@@ -465,13 +511,18 @@ export function OwnerExecution({
                 style={{ width: '100%', fontFamily: 'monospace' }}
                 value={draft}
                 onChange={(e) => {
+                  reviewEpoch.current++;
                   setDraft(e.target.value);
                   setReview(undefined);
                   setConsent(false);
                 }}
               />
             </label>
-            <button className="primary" disabled={busy} onClick={() => void run(validate)}>
+            <button
+              className="primary"
+              disabled={busy || !wallet.correct || !authenticated}
+              onClick={() => void run(validate)}
+            >
               Review live owner strategy
             </button>
           </>
@@ -545,7 +596,13 @@ export function OwnerExecution({
                 </label>
                 <button
                   className="primary"
-                  disabled={!consent || busy || now > review.preview.expiresAt}
+                  disabled={
+                    !consent ||
+                    busy ||
+                    !wallet.correct ||
+                    !authenticated ||
+                    now > review.preview.expiresAt
+                  }
                   onClick={() => void run(submit)}
                 >
                   {now > review.preview.expiresAt
@@ -582,6 +639,10 @@ export function OwnerExecution({
         {hosted && history.length > 0 && (
           <details>
             <summary>Recent strategy reviews ({history.length})</summary>
+            <p>
+              Historical evidence only. These records cannot authorize a transaction; run a fresh
+              review of your current configuration.
+            </p>
             <ul>
               {history
                 .slice(-10)
@@ -589,6 +650,10 @@ export function OwnerExecution({
                 .map((d, i) => (
                   <li key={`${d.id}:${i}`}>
                     {d.strategy} · {d.type.replaceAll('_', ' ')} ·{' '}
+                    {d.configRevision !== undefined && <>revision {d.configRevision} · </>}
+                    {saved.some((c) => c.id === d.agentId && c.revision !== d.configRevision) && (
+                      <strong>Stale — configuration changed · </strong>
+                    )}
                     {new Date(d.evaluatedAt).toLocaleString()}
                     <p>{d.rationale}</p>
                   </li>
