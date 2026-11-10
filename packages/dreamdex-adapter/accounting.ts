@@ -7,6 +7,7 @@ import {
   type AccountMovement,
   type EquityPoint,
   type AccountingReport,
+  type AccountingCheckpoint,
 } from '../accounting';
 import { bankReadAbi } from './snapshot';
 const verifiedBankHistory = new Map<string, AccountingReport>();
@@ -55,6 +56,7 @@ export async function accountPerformance(
   since: number,
   endBlock?: bigint,
   evidence: 'indexed' | 'bank-only' = 'indexed',
+  checkpoint?: AccountingCheckpoint,
 ) {
   if (!Number.isSafeInteger(since) || since < 0 || since > Date.now())
     throw new Error('Invalid accounting start time');
@@ -66,12 +68,42 @@ export async function accountPerformance(
   });
   const cacheKey = `${bank.toLowerCase()}:${owner.toLowerCase()}:${since}`;
   let prior = evidence === 'bank-only' ? verifiedBankHistory.get(cacheKey) : undefined;
+  if (!prior && evidence === 'bank-only' && checkpoint?.since === since) {
+    const candidate = checkpoint.report;
+    if (
+      candidate?.complete &&
+      candidate.chainId === 50383 &&
+      candidate.fillCount === null &&
+      candidate.account.toLowerCase() === owner.toLowerCase() &&
+      candidate.bank.toLowerCase() === bank.toLowerCase() &&
+      /^\d+$/.test(candidate.from.block) &&
+      /^\d+$/.test(candidate.to.block) &&
+      candidate.from.at <= since &&
+      candidate.to.at >= candidate.from.at &&
+      Array.isArray(candidate.movements)
+    )
+      prior = candidate;
+  }
   if (
     prior &&
     (BigInt(prior.to.block) > end.number ||
       (await rpc.getBlock({ blockNumber: BigInt(prior.to.block) })).hash !== prior.to.blockHash)
   )
     prior = undefined;
+  if (prior) {
+    const [opening, next] = await Promise.all([
+      rpc.getBlock({ blockNumber: BigInt(prior.from.block) }),
+      BigInt(prior.from.block) < end.number
+        ? rpc.getBlock({ blockNumber: BigInt(prior.from.block) + 1n })
+        : Promise.resolve(null),
+    ]);
+    if (
+      opening.hash !== prior.from.blockHash ||
+      Number(opening.timestamp) * 1000 > since ||
+      (next && Number(next.timestamp) * 1000 <= since)
+    )
+      prior = undefined;
+  }
   let lo = 0n,
     hi = end.number;
   if (prior) lo = hi = BigInt(prior.from.block);

@@ -3,6 +3,7 @@ import type { AgentConfig, AgentDecision, AgentRuntime } from '../../../packages
 import type { Ticket } from './owner-review';
 import type { DocumentStore } from './hosted-store';
 import { sameConfig } from './config-equality';
+import type { AccountingCheckpoint } from '../../../packages/accounting';
 export type HostedTicket = {
   ticket: Ticket;
   state: 'reviewed' | 'unknown' | 'rejected' | 'confirmed' | 'reverted';
@@ -20,6 +21,7 @@ export interface OwnerDocument {
   lastActionAt?: number;
   executed: Record<string, number>;
   lock?: { token: string; expiresAt: number };
+  accounting?: Record<string, AccountingCheckpoint>;
 }
 const empty = (): OwnerDocument => ({
   configs: {},
@@ -87,9 +89,27 @@ export class HostedLedger {
       status: 'configured',
     };
   }
-  async saveReview(owner: string, token: string, decision: AgentDecision, ticket?: Ticket) {
+  async saveReview(
+    owner: string,
+    token: string,
+    decision: AgentDecision,
+    ticket?: Ticket,
+    accounting: Record<string, AccountingCheckpoint> = {},
+  ) {
     await this.mutate(owner, (d) => {
       this.assertLease(d, token);
+      const candidates = { ...d.accounting, ...accounting };
+      d.accounting = Object.fromEntries(
+        Object.entries(candidates)
+          .filter(
+            ([, c]) =>
+              c.report.complete &&
+              c.report.account.toLowerCase() === owner.toLowerCase() &&
+              c.report.movements.length <= 1000,
+          )
+          .sort(([, a], [, b]) => b.report.generatedAt - a.report.generatedAt)
+          .slice(0, 4),
+      );
       d.decisions = [...d.decisions, decision].slice(-100);
       for (const [id, row] of Object.entries(d.tickets))
         if (row.state === 'reviewed' && row.ticket.expiresAt < Date.now()) delete d.tickets[id];

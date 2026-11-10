@@ -30,6 +30,14 @@ export interface AccountingReport {
   fillCount: number | null;
   generatedAt: number;
 }
+export interface AccountingCheckpoint {
+  since: number;
+  report: AccountingReport;
+}
+export interface AccountingCheckpointCache {
+  get(marketId: string, since: number): AccountingCheckpoint | undefined;
+  put(marketId: string, checkpoint: AccountingCheckpoint): void;
+}
 /** Equity already includes fees/funding: display their breakdown without deducting twice. */
 export function reconcileAccounting(
   input: Omit<

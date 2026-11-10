@@ -5,6 +5,7 @@ import { fromRaw } from '../../../packages/risk-engine';
 import type { AgentConfig } from '../../../packages/agent-engine/config';
 import type { AgentObservation, AgentAccount } from '../../../packages/agent-engine/types';
 import { accountPerformance } from '../../../packages/dreamdex-adapter/accounting';
+import type { AccountingCheckpointCache } from '../../../packages/accounting';
 export async function verifyWorkerNetwork() {
   if ((await rpc.getChainId()) !== 50383)
     throw new Error('Agent worker requires Hideki chain 50383');
@@ -14,6 +15,7 @@ export async function verifyWorkerNetwork() {
 export async function observeAgent(
   c: AgentConfig,
   sessionStartedAt?: number,
+  checkpoints?: AccountingCheckpointCache,
 ): Promise<AgentObservation> {
   const [chainId, block, primary, freshness] = await Promise.all([
     rpc.getChainId(),
@@ -58,6 +60,7 @@ export async function observeAgent(
           sessionStartedAt,
           a.margin.asOfBlock,
           c.execution.signer === 'owner-wallet' ? 'bank-only' : 'indexed',
+          checkpoints?.get(c.marketId, sessionStartedAt),
         );
         const daily =
           day === sessionStartedAt
@@ -68,7 +71,13 @@ export async function observeAgent(
                 day,
                 a.margin.asOfBlock,
                 c.execution.signer === 'owner-wallet' ? 'bank-only' : 'indexed',
+                checkpoints?.get(c.marketId, day),
               );
+        if (c.execution.signer === 'owner-wallet') {
+          if (session.complete)
+            checkpoints?.put(c.marketId, { since: sessionStartedAt, report: session });
+          if (daily.complete) checkpoints?.put(c.marketId, { since: day, report: daily });
+        }
         historyComplete = session.complete && daily.complete;
         if (historyComplete) {
           sessionPnl = session.netPnl;

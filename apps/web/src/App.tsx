@@ -75,6 +75,7 @@ import {
   type Evidence,
 } from './lib';
 import { useWallet } from './wallet';
+import { PriceSources } from './components/price-sources';
 import { Chart } from './Chart';
 import { useAlertMonitoring } from './useAlertMonitoring';
 const AgentStudio = lazy(() => import('./components/agent-studio'));
@@ -406,7 +407,11 @@ function App() {
         <div className="chart-price">
           <strong>{price(liveMarket?.markPrice)}</strong>
           <small title="The live on-chain oracle and indexed settlement snapshots are different sources with different timestamps; their prices can differ.">
-            {detail?.market.error ? 'Indexed settlement mark' : 'On-chain oracle mark'}
+            {detail?.market.markSource === 'oracle'
+              ? detail.market.error
+                ? 'Oracle mark unavailable'
+                : 'On-chain oracle mark'
+              : 'Indexed settlement mark'}
           </small>
         </div>
         <button
@@ -448,6 +453,7 @@ function App() {
           <RefreshCw size={14} className={dq.isFetching ? 'spin' : ''} />
         </button>
       </div>
+      {detail && <PriceSources market={detail.market} indexed={m} />}
       {dq.isLoading ? (
         <Skeleton />
       ) : detail?.candles.length ? (

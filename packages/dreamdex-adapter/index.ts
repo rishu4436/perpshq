@@ -65,6 +65,7 @@ export function normalizeMarket(m: PerpMarket): Market {
     maxLeverage: m.initialMarginBps > 0 ? 10000 / m.initialMarginBps : undefined,
     markPrice: human(m.markPrice, m.quoteDecimals),
     markUpdatedAt: m.markPriceUpdatedAt ? Number(m.markPriceUpdatedAt) * 1000 : undefined,
+    markSource: 'indexed-settlement',
     fundingRate:
       m.fundingRate && m.fundingWindowSec
         ? (human(m.fundingRate, 18)! * 3600) / m.fundingWindowSec
@@ -142,6 +143,9 @@ export async function detail(id: string, tf: Timeframe): Promise<MarketDetail> {
       const s = state.value;
       m = {
         ...m,
+        indexedMarkPrice: m.markPrice,
+        indexedMarkUpdatedAt: m.markUpdatedAt,
+        markSource: 'oracle',
         markPrice: s.markPriceOk ? human(s.markPrice, m.quoteDecimals) : undefined,
         markUpdatedAt: Number(s.indexUpdatedAt) * 1000,
         fundingRate: (human(s.fundingRate, 18)! * 3600) / s.fundingWindowSec,

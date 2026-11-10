@@ -48,7 +48,7 @@ export async function mocks(page: Page, wrongChain = false, outcome = 'success')
       };
       (window as unknown as { __walletCalls: string[] }).__walletCalls = calls;
       (window as unknown as { ethereum: unknown }).ethereum = {
-        request: async ({ method }: { method: string }) => {
+        request: async ({ method, params }: { method: string; params?: { chainId: string }[] }) => {
           calls.push(method);
           if (method === 'eth_accounts') return connected ? [account] : [];
           if (method === 'eth_requestAccounts') {
@@ -56,6 +56,16 @@ export async function mocks(page: Page, wrongChain = false, outcome = 'success')
             return [account];
           }
           if (method === 'eth_chainId') return chain;
+          if (method === 'wallet_switchEthereumChain') {
+            listeners
+              .get('disconnect')
+              ?.forEach((listener) =>
+                listener({ code: 4900, message: 'TEST network transport transition' }),
+              );
+            chain = params![0].chainId;
+            listeners.get('chainChanged')?.forEach((listener) => listener(chain));
+            return null;
+          }
           if (method === 'eth_sendTransaction') {
             if (outcome === 'rejected')
               throw { code: 4001, message: 'User rejected signature (AUTOMATED TEST)' };

@@ -84,8 +84,9 @@ export function useWallet() {
     const disconnected = () => {
       if (!active) return;
       revision.current++;
-      identity.current = {};
-      setAddress(undefined);
+      // EIP-1193 disconnect can mean a chain transport transition, not revoked accounts.
+      // Keep the owner view; accountsChanged/eth_accounts still prove account revocation.
+      identity.current.chain = undefined;
       setChain(undefined);
     };
     p.on?.('disconnect', disconnected);
@@ -152,6 +153,7 @@ export function useWallet() {
     }
   }
   async function switchChain() {
+    const scroll = window.scrollY;
     try {
       const p = providerRef.current;
       if (!p) return;
@@ -176,7 +178,11 @@ export function useWallet() {
         });
       }
       if (p !== providerRef.current) throw new Error('Wallet provider changed. Connect again.');
-      setChain(Number(await p.request({ method: 'eth_chainId' })));
+      const nextChain = Number(await p.request({ method: 'eth_chainId' }));
+      if (identity.current.chain !== nextChain) revision.current++;
+      identity.current.chain = nextChain;
+      setChain(nextChain);
+      window.requestAnimationFrame(() => window.scrollTo({ top: scroll, behavior: 'instant' }));
     } catch (e) {
       setError(errorMessage(e));
     }

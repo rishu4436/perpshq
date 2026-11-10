@@ -35,6 +35,9 @@ export interface Market {
   maxLeverage?: number;
   markPrice?: number;
   markUpdatedAt?: number;
+  markSource?: 'oracle' | 'indexed-settlement';
+  indexedMarkPrice?: number;
+  indexedMarkUpdatedAt?: number;
   fundingRate?: number;
   openInterest?: number;
   change24h?: number;

@@ -47,7 +47,9 @@ export function planTrade(input: PlanInput, market: Market): Plan {
     if (slip.lt(0) || slip.gt(0.05) || !slip.isFinite())
       throw new Error('Slippage must be between 0 and 500 bps');
     if (lev.gt(market.maxLeverage ?? 1))
-      errors.push('Requested planning leverage exceeds verified market maximum');
+      errors.push(
+        `Requested planning leverage exceeds the maximum verified leverage for ${market.symbol}: ${market.maxLeverage ?? 1}×`,
+      );
     const dist = input.side === 'long' ? e.minus(s) : s.minus(e),
       reward = input.side === 'long' ? t.minus(e) : e.minus(t);
     if (dist.lte(0)) throw new Error('Stop must be below a long entry or above a short entry');

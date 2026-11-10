@@ -18,6 +18,8 @@ Manual BTC open/close, Trend entry and Guardian cancellation are verified. Exact
 
 ## Release fixes and verification
 
+The [latest retest fixes](LIVE-QA-PRICE-AND-PERFORMANCE-2026-11-10.md) make oracle/settlement price differences visible, display numerical Planner leverage limits, persist reorg-checked daily accounting to reduce repeated scans across hosted instances, and preserve the owner view during network transitions. The current unit/integration count is 358 passing checks with five optional skips.
+
 The [second QA follow-up](LIVE-QA-FOLLOWUP-2026-11-10.md) adds recorded OHLC/closed-candle evidence, persistent browser history invalidation on wallet changes, row watchlist labels, configuration save feedback, review progress, journal deletion confirmation and a Planner market selector. The current unit/integration count is 353 passing checks with five optional skips.
 
 The follow-up [live QA fix report](LIVE-QA-FIXES-2026-11-10.md) covers wallet-network invalidation, market leverage validation, stale review labels, required amount and lot errors, journal tags, inline Settings errors, accessibility, hosted activity, chart font policy, collateral links and receipt lookup. The updated unit/integration suite passes 351 tests with five optional SDK skips. Earlier counts below describe the preceding release.

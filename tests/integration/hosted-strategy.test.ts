@@ -12,6 +12,8 @@ vi.mock('../../packages/dreamdex-adapter', () => ({
 }));
 import { hostedStrategyRouter } from '../../apps/api/src/hosted-strategy';
 import { HostedStorageError } from '../../apps/api/src/hosted-store';
+import { HostedLedger } from '../../apps/api/src/hosted-ledger';
+import { reconcileAccounting, type AccountingCheckpointCache } from '../../packages/accounting';
 import { defaultAgentConfig } from '../../packages/agent-engine';
 const owner = '0x' + '1'.repeat(40),
   other = '0x' + '2'.repeat(40),
@@ -152,6 +154,49 @@ it('stores versioned owned configurations and refuses stale revisions', async ()
   c.revision++;
   expect((await send('/configs', { config: c })).status).toBe(200);
   expect(((await send('/configs')).body.configs as { revision: number }[])[0].revision).toBe(2);
+});
+it('persists only server-produced verified accounting history for reuse by later reviews', async () => {
+  const c = config(),
+    since = 123000;
+  const report = reconcileAccounting({
+    account: owner,
+    bank: pool,
+    chainId: 50383,
+    from: { block: '1', blockHash: '0x1', at: 120000, totalEquity: '10' },
+    to: { block: '2', blockHash: '0x2', at: 124000, totalEquity: '10' },
+    movements: [],
+    reasons: [],
+    fillCount: null,
+    generatedAt: Date.now(),
+  });
+  const seen: unknown[] = [];
+  mocks.review.mockImplementation(
+    async (config, _previous, _runtime, cache: AccountingCheckpointCache) => {
+      seen.push(cache.get(config.marketId, since));
+      cache.put(config.marketId, { since, report });
+      return {
+        decision: {
+          id: randomUUID(),
+          agentId: config.id,
+          configRevision: config.revision,
+          strategy: config.strategy,
+          type: 'NO_ACTION',
+          evaluatedAt: Date.now(),
+          rationale: 'LABELLED CHECKPOINT TEST',
+        },
+      };
+    },
+  );
+  expect((await send('/review', { config: c })).status).toBe(200);
+  expect(
+    (await new HostedLedger(store).read(owner)).value.accounting?.[`${pool}:${since}`]?.report
+      .complete,
+  ).toBe(true);
+  expect((await send('/review', { config: c })).status).toBe(200);
+  expect(seen[0]).toBeUndefined();
+  expect(seen[1]).toEqual({ since, report });
+  expect((await send('/review', { config: c, accounting: { forged: true } })).status).toBe(400);
+  expect((await send('/configs')).body).not.toHaveProperty('accounting');
 });
 it('refuses leverage above the verified market maximum before saving a revision', async () => {
   const c = config();

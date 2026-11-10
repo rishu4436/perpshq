@@ -74,6 +74,54 @@ beforeEach(() => {
   mocks.getIndexerFreshness.mockResolvedValue({ chainId: 50383, latestProcessedBlock: 110 });
 });
 describe('verified accounting adapter', () => {
+  it('resumes persisted verified history in a cold instance and reads a fresh closing balance', async () => {
+    mocks.getLogs.mockResolvedValue([]);
+    const report = await accountPerformance(owner, owner, 91000, undefined, 'bank-only');
+    vi.resetModules();
+    const cold = (await import('../../packages/dreamdex-adapter/accounting')).accountPerformance;
+    mocks.getBlockNumber.mockResolvedValue(120n);
+    mocks.getLogs.mockClear();
+    mocks.readContract.mockClear();
+    const result = await cold(owner, owner, 91000, undefined, 'bank-only', {
+      since: 91000,
+      report,
+    });
+    expect(result.complete).toBe(true);
+    expect(result.to.block).toBe('120');
+    expect(mocks.getLogs).toHaveBeenCalledWith(
+      expect.objectContaining({ fromBlock: 111n, toBlock: 120n }),
+    );
+    expect(mocks.readContract).toHaveBeenCalledWith(
+      expect.objectContaining({ functionName: 'getAccountEquity', blockNumber: 120n }),
+    );
+  });
+  it.each(['owner', 'reorg', 'boundary'] as const)(
+    'discards an invalid persisted %s checkpoint and rescans the full range',
+    async (kind) => {
+      mocks.getLogs.mockResolvedValue([]);
+      const since = kind === 'owner' ? 92000 : kind === 'reorg' ? 93000 : 94000;
+      const report = await accountPerformance(owner, owner, since, undefined, 'bank-only');
+      if (kind === 'owner') report.account = '0x' + '9'.repeat(40);
+      if (kind === 'boundary') report.from.block = '1';
+      vi.resetModules();
+      const cold = (await import('../../packages/dreamdex-adapter/accounting')).accountPerformance;
+      mocks.getBlockNumber.mockResolvedValue(120n);
+      mocks.getLogs.mockClear();
+      if (kind === 'reorg')
+        mocks.getBlock.mockImplementation(async ({ blockNumber }) => ({
+          number: blockNumber,
+          timestamp: blockNumber,
+          hash:
+            '0x' +
+            (blockNumber === 110n ? 'f'.repeat(64) : blockNumber.toString(16).padStart(64, '0')),
+        }));
+      const result = await cold(owner, owner, since, undefined, 'bank-only', { since, report });
+      expect(result.complete).toBe(true);
+      expect(mocks.getLogs).toHaveBeenCalledWith(
+        expect.objectContaining({ fromBlock: BigInt(since / 1000) + 1n, toBlock: 120n }),
+      );
+    },
+  );
   it('verifies bank-only P&L without claiming an indexed fill count', async () => {
     mocks.getUserFillsPage.mockRejectedValue(new Error('database query error'));
     mocks.getIndexerFreshness.mockRejectedValue(new Error('indexer unavailable'));

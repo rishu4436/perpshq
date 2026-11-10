@@ -208,6 +208,36 @@ test('all four hosted templates review real-shaped decisions without opening a w
   await expect(page.getByRole('status').filter({ hasText: /Saved .*revision/ })).toBeVisible();
   await expect(page.getByLabel('Saved wallet strategies')).toBeVisible();
 });
+test('switching back to Hideki preserves the draft, route and scroll without reloading', async ({
+  page,
+}) => {
+  await hostedMocks(page);
+  await page.getByRole('button', { name: 'Load owner strategy configuration' }).click();
+  const draft = await page.getByLabel('Owner strategy configuration').inputValue();
+  await page.evaluate(() =>
+    (window as unknown as { __setWalletChain: (chain: string) => void }).__setWalletChain('0x1'),
+  );
+  const button = page
+    .getByRole('region', { name: 'Connected wallet strategy execution' })
+    .getByRole('button', { name: 'Switch to Hideki', exact: true });
+  await button.scrollIntoViewIfNeeded();
+  const before = await page.evaluate(() => ({
+    origin: performance.timeOrigin,
+    hash: location.hash,
+    scroll: window.scrollY,
+  }));
+  await button.click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Wallet network:' })).toHaveCount(0);
+  await expect(page.getByLabel('Owner strategy configuration')).toHaveValue(draft);
+  const after = await page.evaluate(() => ({
+    origin: performance.timeOrigin,
+    hash: location.hash,
+    scroll: window.scrollY,
+  }));
+  expect(after.origin).toBe(before.origin);
+  expect(after.hash).toBe(before.hash);
+  expect(Math.abs(after.scroll - before.scroll)).toBeLessThan(150);
+});
 test('slow reviews show elapsed time and explain what remains in progress', async ({ page }) => {
   await hostedMocks(page);
   await page.getByRole('button', { name: 'Load owner strategy configuration' }).click();

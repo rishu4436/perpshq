@@ -424,7 +424,7 @@ export function OwnerExecution({
               )
             )}
             {wallet.address && !wallet.correct && (
-              <button className="secondary" onClick={() => void wallet.switchChain()}>
+              <button type="button" className="secondary" onClick={() => void wallet.switchChain()}>
                 Switch to Hideki
               </button>
             )}

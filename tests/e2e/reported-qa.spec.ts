@@ -1,5 +1,45 @@
 import { test, expect } from '@playwright/test';
 import { mocks, nav, account, btc, eth, fakeHash, fillPlan } from './fixtures';
+import { h, analysis } from './fixtures';
+test('BTC price sources and timestamps are visible when the oracle differs from settlement', async ({
+  page,
+}) => {
+  await mocks(page);
+  await page.route('**/api/markets/' + btc.id + '?**', (r) =>
+    r.fulfill({
+      json: {
+        market: {
+          ...btc,
+          markSource: 'oracle',
+          markPrice: 73212.13,
+          indexedMarkPrice: 74486.63,
+          indexedMarkUpdatedAt: 1700000000000,
+          markUpdatedAt: 1700000300000,
+        },
+        candles: h.candles,
+        quality: h.quality,
+        analysis,
+        book: null,
+        timeframes: {},
+      },
+    }),
+  );
+  await page.goto('/app#Market%20Intelligence');
+  const sources = page.getByRole('region', { name: 'Market price sources' });
+  await expect(sources).toContainText('Oracle mark: $73,212.13');
+  await expect(sources).toContainText('Indexed settlement snapshot: $74,486.63');
+  await expect(sources).toContainText('occur at different times');
+});
+test('Planner states the verified numerical leverage limit', async ({ page }) => {
+  await mocks(page);
+  await page.goto('/app');
+  await nav(page, 'Trade Planner');
+  await fillPlan(page);
+  await page.getByRole('textbox', { name: 'Planning leverage', exact: true }).fill('100');
+  await expect(page.getByText(/Requested planning leverage exceeds/)).toContainText(
+    `${btc.maxLeverage}×`,
+  );
+});
 
 test('row watchlist actions are state-aware on Command Center and Scanner', async ({ page }) => {
   await mocks(page);

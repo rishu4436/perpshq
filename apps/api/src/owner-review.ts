@@ -11,6 +11,7 @@ import { observeAgent } from '../../agent-worker/src/live-data';
 import { marketById, prepare, prepareCancel } from '../../../packages/dreamdex-adapter';
 import { planTrade } from '../../../packages/risk-engine';
 import type { TransactionPreview } from '../../../packages/trade-planner/approval';
+import type { AccountingCheckpointCache } from '../../../packages/accounting';
 export type Ticket = {
   id: string;
   config: AgentConfig;
@@ -24,6 +25,7 @@ export async function prepareOwnerReview(
   config: AgentConfig,
   previous: Ticket | undefined,
   runtime: () => AgentRuntime,
+  checkpoints?: AccountingCheckpointCache,
 ) {
   if (
     config.mode !== 'ASSISTED' ||
@@ -34,12 +36,20 @@ export async function prepareOwnerReview(
     throw new Error(
       'An assisted owner-wallet configuration without a delegated operator is required',
     );
-  let observation = await observeAgent(config, Math.floor(Date.now() / 86400000) * 86400000);
+  let observation = await observeAgent(
+    config,
+    Math.floor(Date.now() / 86400000) * 86400000,
+    checkpoints,
+  );
   if (
     Date.now() - (observation.account?.observedAt ?? 0) > config.risk.maxDataAgeSeconds * 500 ||
     Date.now() - (observation.detail?.quality.fetchedAt ?? 0) > config.risk.maxDataAgeSeconds * 500
   )
-    observation = await observeAgent(config, Math.floor(Date.now() / 86400000) * 86400000);
+    observation = await observeAgent(
+      config,
+      Math.floor(Date.now() / 86400000) * 86400000,
+      checkpoints,
+    );
   const d = evaluateAgent(config, observation, runtime(), Date.now());
   const diagnostics = {
     accountErrors: observation.account?.errors,

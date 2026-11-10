@@ -9,6 +9,7 @@ import { HostedLedger } from './hosted-ledger';
 import { HostedStorageError, type DocumentStore } from './hosted-store';
 import { prepareOwnerReview, type Ticket } from './owner-review';
 import { sameConfig } from './config-equality';
+import type { AccountingCheckpoint } from '../../../packages/accounting';
 const addr = z.string().regex(/^0x[a-fA-F0-9]{40}$/);
 export function hostedStrategyRouter(store: DocumentStore) {
   const router = Router(),
@@ -131,8 +132,19 @@ export function hostedStrategyRouter(store: DocumentStore) {
           !sameConfig(previous.config, b.config))
       )
         throw new Error('Review expired, consumed or configuration changed');
-      const result = await prepareOwnerReview(b.config, previous, () =>
-        ledger.runtime(document, token),
+      const accounting: Record<string, AccountingCheckpoint> = {};
+      const key = (market: string, since: number) => `${market.toLowerCase()}:${since}`;
+      const result = await prepareOwnerReview(
+        b.config,
+        previous,
+        () => ledger.runtime(document, token),
+        {
+          get: (market, since) =>
+            accounting[key(market, since)] ?? document.accounting?.[key(market, since)],
+          put: (market, checkpoint) => {
+            accounting[key(market, checkpoint.since)] = checkpoint;
+          },
+        },
       );
       let ticket: Ticket | undefined;
       if (result.preview) {
@@ -145,7 +157,7 @@ export function hostedStrategyRouter(store: DocumentStore) {
           expiresAt: result.preview.expiresAt,
         };
       }
-      await ledger.saveReview(owner, token, result.decision, ticket);
+      await ledger.saveReview(owner, token, result.decision, ticket, accounting);
       return ticket ?? { ...result, config: b.config };
     } finally {
       await ledger.release(owner, token);
