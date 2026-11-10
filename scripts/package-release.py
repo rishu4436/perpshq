@@ -35,8 +35,10 @@ for source, dest in [
     ('data/release-verification/hosted-api.json', 'verification/hosted-api.json'),
     ('data/release-verification/hosted-browser.json', 'verification/hosted-browser.json'),
     ('data/release-verification/media.json', 'verification/media.json'),
+    ('data/hosted-agent-studio/live-api.json', 'verification/hosted-agent-api.json'),
+    ('data/hosted-agent-studio/database-verification.json', 'verification/database.json'),
     ('data/release-audit-final-2026-11-10.json', 'verification/npm-audit.json'),
-    ('data/submission-demo-2026-11-10/manifest.json', 'demo/manifest.json'),
+    ('data/submission-demo-hosted-2026-11-10/manifest.json', 'demo/manifest.json'),
 ]:
     path = root / source
     if not path.is_file():

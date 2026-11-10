@@ -40,7 +40,7 @@ const scenes = [
   ],
   [
     '/app#Agent%20Studio',
-    'Four strategies with visible evidence. Local worker controls stay private; autonomous broadcasting remains disabled.',
+    'Four live strategy templates. Sign in with your wallet, save privately, review real signals and approve eligible actions. Autonomous broadcasting is disabled.',
     22,
   ],
   [
@@ -98,7 +98,7 @@ await writeFile(
       baseURL,
       scenes: manifest,
       notes:
-        'Actual app tour plus separately labelled historical transaction evidence cards. No fake wallet or trading state. Silent video with captions. Strategy execution remains local-only on the hosted release.',
+        'Actual hosted app tour including wallet-authenticated Agent Studio, plus separately labelled historical transaction evidence cards. No fake wallet or trading state. This disconnected recording does not demonstrate a new wallet signature or trade. Silent video with captions.',
     },
     null,
     2,

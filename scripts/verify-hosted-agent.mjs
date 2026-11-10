@@ -1,6 +1,7 @@
-/* global fetch, AbortSignal, console */
+/* global console */
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { request as httpsRequest } from 'node:https';
 const base = 'https://perpshq.vercel.app';
 const evidence = {
   checkedAt: new Date().toISOString(),
@@ -13,19 +14,46 @@ const evidence = {
 function client() {
   let cookie = '';
   return async (path, body, expected = 200) => {
-    const r = await fetch(base + '/api/owner-strategy' + path, {
-      method: body ? 'POST' : 'GET',
-      headers: {
-        Origin: base,
-        ...(body ? { 'Content-Type': 'application/json' } : {}),
-        ...(cookie ? { Cookie: cookie } : {}),
-      },
-      body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(300000),
+    // Independent TLS connections avoid stale keep-alive resets during slow live reviews.
+    // Never retry a mutation after an ambiguous response.
+    const r = await new Promise((resolve, reject) => {
+      const req = httpsRequest(
+        base + '/api/owner-strategy' + path,
+        {
+          method: body ? 'POST' : 'GET',
+          agent: false,
+          headers: {
+            Origin: base,
+            ...(body ? { 'Content-Type': 'application/json' } : {}),
+            ...(cookie ? { Cookie: cookie } : {}),
+          },
+        },
+        (res) => {
+          let text = '';
+          res.on('data', (chunk) => {
+            text += chunk;
+          });
+          res.on('error', reject);
+          res.on('end', () => {
+            try {
+              resolve({
+                status: res.statusCode,
+                cookie: res.headers['set-cookie']?.[0],
+                body: JSON.parse(text),
+              });
+            } catch (error) {
+              reject(error);
+            }
+          });
+        },
+      );
+      req.setTimeout(300000, () => req.destroy(new Error('Live API check timed out')));
+      req.on('error', reject);
+      req.end(body ? JSON.stringify(body) : undefined);
     });
-    const c = r.headers.get('set-cookie');
+    const c = r.cookie;
     if (c) cookie = c.split(';')[0];
-    const result = await r.json();
+    const result = r.body;
     if (r.status !== expected)
       throw new Error(`${path}: ${r.status} ${JSON.stringify(result).slice(0, 350)}`);
     evidence.checks.push({ path, status: r.status });
