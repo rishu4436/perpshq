@@ -4,6 +4,10 @@ export default defineConfig({
   plugins: [react()],
   root: 'apps/web',
   build: {
+    // Small font subsets must remain same-origin files under font-src 'self'.
+    assetsInlineLimit(filePath) {
+      if (/\.(woff2?|ttf|otf)$/i.test(filePath)) return false;
+    },
     outDir: '../../dist',
     emptyOutDir: true,
     rollupOptions: {

@@ -17,7 +17,7 @@ This follows the owner's pasted wallet/configuration and screen audit. No funds 
 - Invalid read-only addresses show an inline, accessible Settings error rather than leaking a global banner across screens.
 - Watchlist toggle labels reflect add/remove state; chart refresh has an explicit accessible name. The chart watchlist control remains available on mobile.
 - Hosted activity is kept in the browser instead of sending the outbox to denied local-worker routes. Existing local storage and exports remain available.
-- Chart attribution uses a visible TradingView link instead of the logo's inline font, preserving the strict font policy.
+- Small font subsets remain same-origin files instead of Vite embedding them as data URLs, preserving the strict font policy. Chart attribution uses a visible TradingView link.
 - Trading readiness and account screens link to `/testnet-collateral.html`. The existing flow simulates a one-time claim or an exact 15 USDso approval/deposit. It uses the discovered MetaMask provider. Hideki STT gas and USDso bank collateral are clearly distinguished. Protocol claim rejection remains a possible outcome.
 - Recovery Center exposes an account/market-bound transaction-hash inspector. An unrelated account, pool or network is rejected. Inspection does not bypass unresolved-submission reconciliation.
 - Portfolio filters loaded equity observations, fills, funding and P&L by range. Its coverage remains explicitly bounded. Fees absent from the loaded payload remain unavailable. Rounded negative zero displays as zero.
@@ -26,5 +26,7 @@ This follows the owner's pasted wallet/configuration and screen audit. No funds 
 ## Verification
 
 351 unit/integration tests passed, with five optional SDK tests skipped, including exact-lot and invalid-decimal regressions. Type checking, lint and client/server builds passed. Browser checks cover reported steps on desktop and mobile, including both event-driven and polling network changes, all four mocked execution/recovery paths, journal persistence, inline errors and account-bound receipt lookup. The mobile watchlist toggle passed a focused recheck after restoring its visibility. Mocked wallet evidence is not a live testnet transaction.
+
+Production API checks passed 26 checks, including actual rejection of excessive leverage and a clear required-field error, with four real strategy reviews and no broadcast. The full browser run passed 104 cases and skipped nine optional cases; its one five-second cold-load failure passed a focused rerun with the same 30-second lazy-load allowance used elsewhere. All reported regressions passed on desktop and mobile.
 
 Breakout and Mean Reversion qualifying entry receipts and a live funded-wallet execution of this updated release remain outstanding. No WalletConnect integration was added.

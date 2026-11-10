@@ -37,6 +37,7 @@ for source, dest in [
     ('data/release-verification/media.json', 'verification/media.json'),
     ('data/hosted-agent-studio/live-api.json', 'verification/hosted-agent-api.json'),
     ('data/hosted-agent-studio/database-verification.json', 'verification/database.json'),
+    ('data/qa-fixes-2026-11-10/font-build.json', 'verification/font-build.json'),
     ('data/release-audit-final-2026-11-10.json', 'verification/npm-audit.json'),
     ('data/submission-demo-hosted-2026-11-10/manifest.json', 'demo/manifest.json'),
 ]:
