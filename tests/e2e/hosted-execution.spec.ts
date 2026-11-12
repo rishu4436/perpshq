@@ -254,7 +254,19 @@ test('switching back to Hideki preserves the draft, route and scroll without rel
 }) => {
   await hostedMocks(page);
   await page.getByRole('button', { name: 'Load owner strategy configuration' }).click();
+  await page.getByRole('button', { name: 'Review live owner strategy' }).click();
+  await page.getByText('View signal and risk evidence', { exact: true }).click();
   const draft = await page.getByLabel('Owner strategy configuration').inputValue();
+  await page.evaluate(() => {
+    const p = window.ethereum!,
+      original = p.request.bind(p);
+    p.request = async (args) => {
+      const result = await original(args);
+      if (args.method === 'wallet_switchEthereumChain')
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      return result;
+    };
+  });
   await page.evaluate(() =>
     (window as unknown as { __setWalletChain: (chain: string) => void }).__setWalletChain('0x1'),
   );
@@ -269,6 +281,7 @@ test('switching back to Hideki preserves the draft, route and scroll without rel
   }));
   await button.click();
   await expect(page.getByRole('alert').filter({ hasText: 'Wallet network:' })).toHaveCount(0);
+  await page.waitForTimeout(400);
   await expect(page.getByLabel('Owner strategy configuration')).toHaveValue(draft);
   const after = await page.evaluate(() => ({
     origin: performance.timeOrigin,
@@ -277,7 +290,37 @@ test('switching back to Hideki preserves the draft, route and scroll without rel
   }));
   expect(after.origin).toBe(before.origin);
   expect(after.hash).toBe(before.hash);
+  expect(before.scroll).toBeGreaterThan(200);
   expect(Math.abs(after.scroll - before.scroll)).toBeLessThan(150);
+  await expect(page.getByRole('note', { name: 'Review validity' })).toContainText(
+    'Stale — wallet account or network changed',
+  );
+});
+
+test('a network-stale executable snapshot stays visible and cannot be reused after returning to Hideki', async ({
+  page,
+}) => {
+  await hostedMocks(page, true);
+  await page.getByRole('button', { name: 'Load owner strategy configuration' }).click();
+  await page.getByRole('button', { name: 'Review live owner strategy' }).click();
+  const consent = page.getByRole('checkbox', { name: /I approve this exact strategy transaction/ });
+  await consent.check();
+  await page.evaluate(() =>
+    (window as unknown as { __setWalletChain: (chain: string) => void }).__setWalletChain('0x1'),
+  );
+  await expect(page.getByRole('note', { name: 'Review validity' })).toContainText(
+    'Stale — wallet account or network changed',
+  );
+  await expect(page.getByRole('heading', { name: 'ENTRY CANDIDATE', exact: true })).toBeVisible();
+  await expect(consent).toBeDisabled();
+  await page.evaluate(() =>
+    (window as unknown as { __setWalletChain: (chain: string) => void }).__setWalletChain('0xc4cf'),
+  );
+  await expect(page.getByRole('button', { name: 'Stale review — review again' })).toBeDisabled();
+  await expect(consent).not.toBeChecked();
+  await page.getByRole('button', { name: 'Review live owner strategy' }).click();
+  await expect(page.getByRole('note', { name: 'Review validity' })).toHaveCount(0);
+  await expect(consent).toBeEnabled();
 });
 test('slow reviews show elapsed time and explain what remains in progress', async ({ page }) => {
   await hostedMocks(page);
@@ -364,12 +407,15 @@ for (const emit of [true, false])
       '1',
       { timeout: 10000 },
     );
-    await expect(page.getByRole('heading', { name: 'NO ACTION', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'NO ACTION', exact: true })).toBeVisible();
+    await expect(page.getByRole('note', { name: 'Review validity' })).toContainText(
+      'Stale — wallet account or network changed',
+    );
     await expect(
       page.getByRole('button', { name: 'Switch to Hideki', exact: true }).first(),
     ).toBeVisible();
     await page.getByText(/Recent strategy reviews/).click();
-    await expect(page.getByText(/Stale — wallet account or network changed/)).toBeVisible();
+    await expect(page.getByText(/Stale — wallet account or network changed/).first()).toBeVisible();
     await page.reload();
     await page.getByRole('button', { name: 'Connect owner wallet', exact: true }).click();
     await page.getByText(/Recent strategy reviews/).click();

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useLayoutEffect, useState, useRef } from 'react';
 import { NETWORK } from '../../../packages/shared-types';
 import { errorMessage, type Preview, type Evidence } from './lib';
 import {
@@ -32,6 +32,18 @@ export function useWallet() {
   const revision = useRef(0),
     inFlight = useRef(false);
   const identity = useRef<{ address?: string; chain?: number }>({});
+  const switchScroll = useRef<number | undefined>(undefined);
+  useLayoutEffect(() => {
+    if (chain !== NETWORK.id || switchScroll.current === undefined) return;
+    const top = switchScroll.current;
+    window.scrollTo({ top, behavior: 'instant' });
+    // Restore after the chain-dependent layout and browser anchoring have settled.
+    const frame = requestAnimationFrame(() => {
+      window.scrollTo({ top, behavior: 'instant' });
+      switchScroll.current = undefined;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [chain]);
   useEffect(
     () =>
       discoverWalletProvider(window, window.ethereum, (next) => {
@@ -195,10 +207,14 @@ export function useWallet() {
     }
   }
   async function switchChain() {
-    const scroll = window.scrollY;
+    const top = window.scrollY;
+    switchScroll.current = top;
     try {
       const p = providerRef.current;
-      if (!p) return;
+      if (!p) {
+        switchScroll.current = undefined;
+        return;
+      }
       try {
         await p.request({
           method: 'wallet_switchEthereumChain',
@@ -224,8 +240,11 @@ export function useWallet() {
       if (identity.current.chain !== nextChain) revision.current++;
       identity.current.chain = nextChain;
       setChain(nextChain);
-      window.requestAnimationFrame(() => window.scrollTo({ top: scroll, behavior: 'instant' }));
+      if (nextChain === NETWORK.id)
+        window.requestAnimationFrame(() => window.scrollTo({ top, behavior: 'instant' }));
+      else switchScroll.current = undefined;
     } catch (e) {
+      switchScroll.current = undefined;
       setError(errorMessage(e));
     }
   }

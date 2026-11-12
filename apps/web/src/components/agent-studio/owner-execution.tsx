@@ -86,6 +86,11 @@ export function OwnerExecution({
     [timeframe, setTimeframe] = useState<AgentConfig['timeframes'][number]>('15m');
   const authenticated =
     !hosted || (!!wallet.address && sessionOwner === wallet.address.toLowerCase());
+  const reviewStale =
+    !!review &&
+    (review.config.ownerAddress?.toLowerCase() !== wallet.address?.toLowerCase() ||
+      !wallet.correct ||
+      (invalidations[wallet.address?.toLowerCase() ?? ''] ?? []).includes(review.decision.id));
   useEffect(() => {
     const previous = previousWallet.current;
     if (
@@ -104,10 +109,13 @@ export function OwnerExecution({
         ].slice(-100),
       }));
     }
+    const accountChanged = previous.address !== wallet.address;
     previousWallet.current = { address: wallet.address, chain: wallet.chain };
     setNotice('');
     reviewEpoch.current++;
-    setReview(undefined);
+    // Network changes invalidate authorization, but preserve the evidence for inspection.
+    // Switching accounts still clears the previous owner's visible snapshot.
+    if (accountChanged) setReview(undefined);
     setConsent(false);
   }, [wallet.address, wallet.chain]);
   useEffect(() => {
@@ -313,6 +321,7 @@ export function OwnerExecution({
       epoch = reviewEpoch.current;
     if (!consent || !review?.id || !review.preview || pending() || wallet.blocked)
       throw new Error('A fresh reviewed proposal and consent are required');
+    if (reviewStale) throw new Error('Stale review. Review again on Hideki before signing.');
     if (Date.now() > review.preview.expiresAt)
       throw new Error('Review expired. Review again before opening the wallet.');
     if (JSON.stringify(parsedDraft()) !== JSON.stringify(agentConfigSchema.parse(review.config)))
@@ -622,6 +631,12 @@ export function OwnerExecution({
         {review && (
           <>
             <h4 id="owner-review-summary">{review.decision.type.replaceAll('_', ' ')}</h4>
+            {reviewStale && (
+              <p role="note" aria-label="Review validity">
+                <strong>Stale — wallet account or network changed</strong>. Historical evidence
+                only. Run a fresh review on Hideki before execution.
+              </p>
+            )}
             <p>{review.decision.rationale}</p>
             {review.decision.candleEvidence ? (
               <section aria-label="Reviewed candle evidence">
@@ -723,6 +738,7 @@ export function OwnerExecution({
                   <input
                     type="checkbox"
                     checked={consent}
+                    disabled={reviewStale}
                     onChange={(e) => setConsent(e.target.checked)}
                   />
                   I approve this exact strategy transaction on Hideki. Planning stops are not armed.
@@ -734,15 +750,18 @@ export function OwnerExecution({
                     busy ||
                     !wallet.correct ||
                     !authenticated ||
+                    reviewStale ||
                     now > review.preview.expiresAt
                   }
                   onClick={() => void run(submit)}
                 >
                   {walletRequested
                     ? 'Wallet approval pending — inspect MetaMask'
-                    : now > review.preview.expiresAt
-                      ? 'Review expired — review again'
-                      : 'Confirm strategy & open wallet'}
+                    : reviewStale
+                      ? 'Stale review — review again'
+                      : now > review.preview.expiresAt
+                        ? 'Review expired — review again'
+                        : 'Confirm strategy & open wallet'}
                 </button>
                 {walletRequested && (
                   <p role="status">

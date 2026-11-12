@@ -1,6 +1,6 @@
 # PerpsHQ release — 10 November 2026
 
-Latest update: [12 November live wallet retest and regression follow-up](LIVE-RETEST-2026-11-12.md). Guardian cancellation receipts were independently checked at blocks 48063158 and 48065728. The latest user-run manual flows passed; Trend, Breakout and Mean Reversion entry execution and strategy rejection/pending recovery remain pending in this run. Network switching needs a real MetaMask retest after the regression fixes. Submission readiness remains conditional. Earlier Trend receipts below are historical evidence.
+Latest update: [12 November live wallet retest and regression follow-up](LIVE-RETEST-2026-11-12.md). Guardian cancellation receipts were independently checked at blocks 48063158 and 48065728. The latest user-run manual flows passed; Trend, Breakout and Mean Reversion entry execution and strategy rejection/pending recovery remain pending in this run. The user confirmed automatic Ethereum detection and locked controls in MetaMask. The stale-review display and switch-back scroll follow-up still need a real MetaMask retest. Submission readiness remains conditional. Earlier Trend receipts below are historical evidence.
 
 - Website: https://perpshq.vercel.app
 - Workspace: https://perpshq.vercel.app/app

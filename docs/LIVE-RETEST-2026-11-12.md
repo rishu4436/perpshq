@@ -29,6 +29,12 @@ No transactions were broadcast by the coding agent during this follow-up.
 
 ## Submission limits
 
+### Follow-up network retest
+
+The user subsequently confirmed automatic Ethereum detection within a few seconds, the wrong-network warning and disabled Load/Save/Review controls in real MetaMask. The owner draft survived switch-back and a fresh NO_ACTION review completed. No transactions were sent. Receipt reconciliation staying enabled is intentional: it reads Hideki receipts rather than requesting a wallet signature.
+
+Two presentation regressions remained: the current review was removed rather than retained as stale, and switching back jumped to the top. The current follow-up preserves the review evidence with an explicit stale label and disabled approval controls, retaining invalidation after return to Hideki until a fresh review. Account changes still clear the previous owner's visible snapshot. Scroll restoration now runs after the chain-dependent React layout commits instead of only at wallet-request completion. Regression coverage includes completed NO_ACTION evidence, an executable stale snapshot, and a delayed switch request with populated/expanded review evidence. These two changes still need the user's real MetaMask retest after deployment.
+
 The 12 November run did not execute Trend, Breakout or Mean Reversion because no genuine entry qualified. Earlier historical Trend evidence remains historical evidence, not proof that this run completed all strategies. Strategy rejection and pending-request recovery were not exercised live in this run.
 
 The release remains conditional on a real MetaMask network-switch retest and qualifying strategy execution/recovery evidence. Automated browser fixtures are labelled as automated tests, not real trades. Do not claim all four strategy executions passed.
@@ -36,3 +42,5 @@ The release remains conditional on a real MetaMask network-switch retest and qua
 ## Automated validation
 
 360 unit/integration checks passed with five optional SDK skips. TypeScript, lint and production builds passed. The broad desktop/mobile browser run passed 64 checks; two new naming/history cases initially had an ambiguous test selector, which was corrected. A focused eight-case desktop/mobile rerun passed, covering both corrected cases and the final Planner/template changes. Two additional collateral-policy browser cases passed, bringing distinct verified browser cases to 68 across the runs. Network fallback with a stalled account read, switch-back preservation and pending-wallet expiry behaviour passed on desktop and mobile.
+
+For the subsequent stale-review/scroll follow-up, all 30 hosted-execution/provider browser checks passed on desktop and mobile. This includes the revised retained-NO_ACTION expectation, stale executable approval lock after switch-back, delayed provider completion with expanded review evidence, unchanged document/route/draft, and scroll delta below 150 pixels from a starting position beyond 200 pixels. All four execution/recovery paths in this browser suite use explicitly mocked receipts.
