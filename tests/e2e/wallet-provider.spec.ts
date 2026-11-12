@@ -1,6 +1,31 @@
 import { test, expect } from '@playwright/test';
 import { mocks, account, fakeHash, nav, fillPlan } from './fixtures';
 
+test('network polling detects Ethereum even when account reads stall and events are missing', async ({
+  page,
+}) => {
+  await mocks(page);
+  await page.goto('/app');
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
+  await page.evaluate(() => {
+    const provider = window.ethereum!;
+    const original = provider.request.bind(provider);
+    provider.request = (args) =>
+      args.method === 'eth_accounts'
+        ? new Promise(() => {})
+        : args.method === 'eth_chainId'
+          ? Promise.resolve('0x1')
+          : original(args);
+  });
+  await page.getByRole('button', { name: 'Refresh wallet network', exact: true }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Wallet network: 1.' })).toBeVisible({
+    timeout: 10000,
+  });
+  await expect(
+    page.getByRole('button', { name: 'Switch to Hideki', exact: true }).first(),
+  ).toBeVisible();
+});
+
 test('MetaMask connection and signing remain bound when another wallet owns window.ethereum', async ({
   page,
 }) => {

@@ -171,6 +171,47 @@ async function hostedMocks(page: Page, execute = false) {
   await expect(page.getByText('Signed in as ' + account, { exact: false })).toBeVisible();
   return { strategies };
 }
+
+test('wallet configurations get distinct descriptive names and repeated reviews retain history', async ({
+  page,
+}) => {
+  await hostedMocks(page);
+  await page.getByRole('button', { name: 'Load owner strategy configuration' }).click();
+  const draft = page.getByLabel('Owner strategy configuration');
+  expect(JSON.parse(await draft.inputValue()).name).toBe('Trend · BTC-PERP · 15m');
+  await page.getByRole('button', { name: 'Save wallet strategy' }).click();
+  await page.getByRole('button', { name: 'Review live owner strategy' }).click();
+  await expect(page.getByText('Recent strategy reviews (1)', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Review live owner strategy' }).click();
+  await expect(page.getByText('Recent strategy reviews (2)', { exact: true })).toBeVisible();
+  await page.getByLabel('Wallet strategy', { exact: true }).selectOption('mean-reversion');
+  expect(JSON.parse(await draft.inputValue()).name).toBe('Mean Reversion · BTC-PERP · 15m');
+});
+
+test('an already-dispatched wallet request is labelled pending when its review timer expires', async ({
+  page,
+}) => {
+  await hostedMocks(page, true);
+  await page.evaluate(() => {
+    const p = window.ethereum!;
+    const request = p.request.bind(p);
+    p.request = (args) =>
+      args.method === 'eth_sendTransaction' ? new Promise(() => {}) : request(args);
+  });
+  await page.getByRole('button', { name: 'Load owner strategy configuration' }).click();
+  await page.getByRole('button', { name: 'Review live owner strategy' }).click();
+  await page.getByRole('checkbox', { name: /I approve this exact strategy transaction/ }).check();
+  await page.getByRole('button', { name: 'Confirm strategy & open wallet' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Wallet approval pending — inspect MetaMask' }),
+  ).toBeVisible();
+  await page.clock.install();
+  await page.clock.fastForward(61000);
+  await expect(
+    page.getByRole('button', { name: 'Wallet approval pending — inspect MetaMask' }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Review expired — review again' })).toHaveCount(0);
+});
 test('all four hosted templates review real-shaped decisions without opening a wallet for NO_ACTION', async ({
   page,
 }) => {

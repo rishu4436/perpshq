@@ -177,7 +177,10 @@ export function hostedStrategyRouter(store: DocumentStore) {
   });
   route('post', '/rejected', async (owner, req) => {
     const b = z
-      .object({ ticketId: z.string().uuid(), walletCode: z.literal(4001) })
+      .object({
+        ticketId: z.string().uuid(),
+        walletCode: z.union([z.literal(4001), z.literal('not-dispatched')]),
+      })
       .strict()
       .parse(req.body);
     await ledger.mutate(owner, (d) => {

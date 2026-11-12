@@ -70,7 +70,14 @@ async function review(deposit = false) {
     );
     update();
   } catch (e) {
-    message(e.message);
+    if (!deposit && /claim-policy gate rejects direct claims/.test(e.message)) {
+      el('preview').disabled = true;
+      el('details').textContent =
+        'Direct faucet claims are blocked by the deployed protocol policy for this wallet. No claim transaction was sent. If you hold wallet USDso, use Review 15 USDso margin deposit. Otherwise use the official dreamDEX funding instructions above to obtain authorized testnet collateral.';
+      message(
+        'Direct claim unavailable under protocol policy. Use the deposit flow or official funding instructions; retrying this claim will not bypass the gate.',
+      );
+    } else message(e.message);
   }
 }
 el('preview').onclick = () => review(false);

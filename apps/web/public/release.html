@@ -178,8 +178,8 @@
       </p>
       <h2>A guided product tour</h2>
       <p>
-        Updated to show hosted Agent Studio. Wallet-authenticated strategy reviews and execution
-        are available on the live site; this disconnected tour does not show a new wallet trade.
+        Updated to show hosted Agent Studio. Wallet-authenticated strategy reviews and execution are
+        available on the live site; this disconnected tour does not show a new wallet trade.
       </p>
       <p>
         Captioned recording of the deployed app. The recording browser is disconnected from a
@@ -196,7 +196,26 @@
         <a href="/release/perpshq-demo.mp4" download>Download MP4</a> ·
         <a href="/release/release-report.md">Read the release report</a>
       </p>
-      <h2>Actual testnet execution</h2>
+      <h2>Latest live retest · 12 November 2026</h2>
+      <p>
+        Manual entry/close and Guardian cancellation passed in the latest user-run tests. The
+        Guardian placement and cancellation receipts were independently rechecked. The user reported
+        finishing flat with no resting orders or unresolved requests. Trend, Breakout and Mean
+        Reversion entry execution remain pending genuine signals in this run; strategy rejection and
+        pending-request recovery were not exercised.
+      </p>
+      <p>
+        Wallet/network regression fixes require a fresh real MetaMask retest. The release is not
+        represented as fully verified for submission. Direct collateral claims may be blocked by
+        deployed protocol policy; wallet USDso deposits remain a separate funding route.
+      </p>
+      <p>
+        <a
+          href="https://smk-dev-markets-explorer-hideki-euw4-uzavbo36ra-ez.a.run.app/tx/0x113c8606f147485851e8c93b5aa50586ef5efa4ad6e44727ee7312affdff3716"
+          >Inspect 12 November Guardian cancellation ↗</a
+        >
+      </p>
+      <h2>Earlier actual testnet execution</h2>
       <div class="grid">
         <section class="card">
           <div class="status">VERIFIED / MANUAL OPEN & CLOSE</div>
@@ -250,8 +269,8 @@
       <ul>
         <li>
           <strong>Public website:</strong> live research, indicators, planning, manual wallet
-          trading, receipt reconciliation, browser-local records and authenticated Agent Studio
-          with private saved configurations and connected-wallet execution.
+          trading, receipt reconciliation, browser-local records and authenticated Agent Studio with
+          private saved configurations and connected-wallet execution.
         </li>
         <li>
           <strong>Local application:</strong> independent worker controls, full local history and
@@ -263,10 +282,8 @@
         </li>
       </ul>
       <p>
-        Validation: 348 unit/integration checks and 20 focused wallet/hosting browser checks passed;
-        optional checks are identified in the report. The current dependency audit reports zero
-        known vulnerabilities. These checks are not a formal security audit or evidence of
-        profitability.
+        Validation results and optional skips are identified in the release report. Automated tests
+        are not real trade receipts, a formal security audit or evidence of profitability.
       </p>
       <footer>
         Independent frontend · dreamDEX data · Hideki 50383 · Testnet only. Organizer eligibility,

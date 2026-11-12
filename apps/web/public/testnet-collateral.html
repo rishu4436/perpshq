@@ -47,6 +47,11 @@
     <p>PERPSHQ / HIDEKI 50383</p>
     <h1>Fund testnet trading collateral</h1>
     <p>
+      Direct credit claims depend on deployed protocol policy and may be unavailable even when SDK
+      eligibility passes. Failed simulations never open a transaction request. Wallet USDso can be
+      deposited using the separate deposit flow below.
+    </p>
+    <p>
       Use your PerpsHQ MetaMask account on Somnia Hideki (50383). You need Hideki STT for gas before
       either flow can run. USDso in a spot wallet is separate from collateral in the margin bank.
     </p>
@@ -67,7 +72,8 @@
     <button id="deposit">Review 15 USDso margin deposit</button>
     <p>
       The deposit flow first approves exactly 15 USDso to the discovered perps bank if needed, then
-      deposits 15 USDso in a second transaction. Check each receipt before continuing. No unlimited approval.
+      deposits 15 USDso in a second transaction. Check each receipt before continuing. No unlimited
+      approval.
     </p>
     <pre id="details">
 Connect the same wallet used in PerpsHQ. The SDK will check eligibility and simulate the claim.</pre>

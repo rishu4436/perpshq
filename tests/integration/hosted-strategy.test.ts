@@ -206,6 +206,19 @@ it('refuses leverage above the verified market maximum before saving a revision'
   expect(result.body.error).toContain('maximum verified leverage');
   expect((await send('/configs')).body.configs).toEqual([]);
 });
+it('releases a known pre-dispatch block without treating ambiguous errors as rejections', async () => {
+  const c = config(),
+    reviewed = await send('/review', { config: c });
+  expect((await send('/begin', { ticketId: reviewed.body.id })).status).toBe(200);
+  expect(
+    (await send('/rejected', { ticketId: reviewed.body.id, walletCode: 'RPC error' })).status,
+  ).toBe(400);
+  expect((await send(`/status/${reviewed.body.id}`)).body.state).toBe('unknown');
+  expect(
+    (await send('/rejected', { ticketId: reviewed.body.id, walletCode: 'not-dispatched' })).status,
+  ).toBe(200);
+  expect((await send(`/status/${reviewed.body.id}`)).body.state).toBe('rejected');
+});
 it('reviews saved JSONB configurations after key reordering and still rejects changed values', async () => {
   const c = config();
   expect((await send('/configs', { config: c })).status).toBe(200);

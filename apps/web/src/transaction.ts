@@ -82,7 +82,14 @@ export async function requestTransaction(
       'Wallet account or network changed. Review a new preview.',
       'blocked',
     );
-  assertPreview(preview, accounts[0], preview.to);
+  try {
+    assertPreview(preview, accounts[0], preview.to);
+  } catch (error) {
+    throw new SubmissionFailure(
+      error instanceof Error ? error.message : 'Invalid preview',
+      'blocked',
+    );
+  }
   if (readSubmission(storage))
     throw new SubmissionFailure(
       'A previous wallet request is unresolved. Reconcile it before submitting again.',
@@ -115,6 +122,16 @@ export async function requestTransaction(
           update(undefined);
           throw new SubmissionFailure(
             'Wallet changed before dispatch. Review a new preview.',
+            'blocked',
+          );
+        }
+        // A preview may expire while waiting for identity checks or the browser lock.
+        try {
+          assertPreview(preview, accounts[0], preview.to);
+        } catch (error) {
+          update(undefined);
+          throw new SubmissionFailure(
+            error instanceof Error ? error.message : 'Preview expired',
             'blocked',
           );
         }
@@ -176,11 +193,9 @@ export async function requestTransaction(
         );
       }),
     ]);
-    if (revision() !== version)
-      throw new SubmissionFailure(
-        'Wallet identity changed while signing. Reconcile the saved request; it may have broadcast.',
-        'unknown',
-      );
+    // Once the wallet supplies a hash, its broadcast outcome is known even if the
+    // account/network changed while the prompt was open. Receipt checks remain bound
+    // to the original intent and the persisted lock is retained until reconciliation.
     return hash;
   } finally {
     if (timer) clearTimeout(timer);

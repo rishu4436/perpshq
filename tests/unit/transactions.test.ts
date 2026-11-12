@@ -124,6 +124,22 @@ describe('reviewed transaction approval', () => {
   });
 });
 describe('wallet dispatch and persisted recovery', () => {
+  it('does not dispatch or keep a lock when the preview expires immediately before dispatch', async () => {
+    vi.useFakeTimers();
+    const now = Date.now(),
+      storage = memory(),
+      p = provider();
+    const saved = storage.setItem;
+    storage.setItem = (key, value) => {
+      saved(key, value);
+      vi.setSystemTime(now + 40000);
+    };
+    await expect(requestTransaction(preview(), p, storage, () => {})).rejects.toMatchObject({
+      outcome: 'blocked',
+    });
+    expect(p.request.mock.calls.some(([q]) => q.method === 'eth_sendTransaction')).toBe(false);
+    expect(readSubmission(storage)).toBeUndefined();
+  });
   it('stores intent before dispatch and pins the reviewed transaction', async () => {
     const s = memory(),
       p = provider(async () => {
@@ -250,7 +266,7 @@ describe('wallet dispatch and persisted recovery', () => {
         () => {},
         () => revision,
       ),
-    ).rejects.toMatchObject({ outcome: 'unknown' });
+    ).resolves.toBe(hash);
     expect(readSubmission(s)?.hash).toBe(hash);
   });
   it('persists a late explicit rejection before releasing its wallet lock', async () => {

@@ -941,6 +941,11 @@ function App() {
             </div>
           </nav>
           <ErrorNote error={wallet.error ?? (noticeError || null)} />
+          {wallet.address && (
+            <button className="text-button" onClick={wallet.refreshNetwork}>
+              Refresh wallet network
+            </button>
+          )}
           {wallet.address && !wallet.correct && (
             <div role="alert" className="notice danger">
               Wallet network: {wallet.chain ?? 'unknown'}. Switch to Hideki (50383). Market data

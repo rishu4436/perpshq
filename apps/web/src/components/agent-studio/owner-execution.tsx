@@ -16,6 +16,17 @@ type Review = {
   expiresAt?: number;
 };
 const intentKey = 'perpshq.ownerStrategyIntent';
+function mergeHistory(...lists: AgentDecision[][]) {
+  return [...new Map(lists.flat().map((d) => [d.id, d])).values()]
+    .sort((a, b) => a.evaluatedAt - b.evaluatedAt)
+    .slice(-100);
+}
+const strategyNames: Record<AgentConfig['strategy'], string> = {
+  'multi-timeframe-trend': 'Trend',
+  'support-resistance-breakout': 'Breakout',
+  'mean-reversion': 'Mean Reversion',
+  'risk-guardian': 'Risk Guardian',
+};
 type OwnerIntent = {
   ticketId: string;
   account: string;
@@ -56,6 +67,7 @@ export function OwnerExecution({
     {},
   );
   const [notice, setNotice] = useState('');
+  const [walletRequested, setWalletRequested] = useState(false);
   const [operation, setOperation] = useState('Checking live chain data and strategy policy');
   const [startedAt, setStartedAt] = useState(0);
   const [draft, setDraft] = useState(''),
@@ -129,7 +141,7 @@ export function OwnerExecution({
       .then((s) => {
         if (active) {
           setSaved(s.configs);
-          setHistory(s.decisions);
+          setHistory((existing) => mergeHistory(existing, s.decisions));
           setRemotePending(s.unresolved[0]);
         }
       })
@@ -233,7 +245,7 @@ export function OwnerExecution({
         strategy: strategyValue,
         marketId: marketValue || c.marketId,
         timeframes: [timeframeValue],
-        name: strategyValue.replaceAll('-', ' '),
+        name: `${strategyNames[strategyValue]} · ${markets.find((m) => m.id === (marketValue || c.marketId))?.symbol ?? 'market'} · ${timeframeValue}`,
       });
     }
   }
@@ -263,7 +275,18 @@ export function OwnerExecution({
     const config = await api<AgentConfig>(
       `/owner-strategy/defaults?account=${wallet.address}&marketId=${market.id}`,
     );
-    setDraft(JSON.stringify({ ...config, strategy, timeframes: [timeframe] }, null, 2));
+    setDraft(
+      JSON.stringify(
+        {
+          ...config,
+          strategy,
+          timeframes: [timeframe],
+          name: `${strategyNames[strategy]} · ${market.symbol} · ${timeframe}`,
+        },
+        null,
+        2,
+      ),
+    );
     setReview(undefined);
     setConsent(false);
   }
@@ -283,13 +306,15 @@ export function OwnerExecution({
       throw new Error('Configuration changed while reviewing. Review again.');
     setReview({ ...result, config });
     setConsent(false);
-    if (hosted) setHistory((v) => [...v, result.decision].slice(-100));
+    if (hosted) setHistory((v) => mergeHistory(v, [result.decision]));
   }
   async function submit() {
     const current = await wallet.checkConnection(),
       epoch = reviewEpoch.current;
     if (!consent || !review?.id || !review.preview || pending() || wallet.blocked)
       throw new Error('A fresh reviewed proposal and consent are required');
+    if (Date.now() > review.preview.expiresAt)
+      throw new Error('Review expired. Review again before opening the wallet.');
     if (JSON.stringify(parsedDraft()) !== JSON.stringify(agentConfigSchema.parse(review.config)))
       throw new Error('Configuration changed; review again');
     const fresh = await api<Review>('/owner-strategy/review', {
@@ -302,6 +327,8 @@ export function OwnerExecution({
       throw new Error('Configuration changed while reviewing. Review again.');
     if (!fresh.preview) throw new Error('Strategy no longer has an executable proposal');
     assertSameApproval(review.preview, fresh.preview);
+    if (Date.now() > review.preview.expiresAt)
+      throw new Error('Review expired during live checks. Review again before opening the wallet.');
     const intent = {
       ticketId: review.id,
       account: fresh.preview.account,
@@ -324,11 +351,30 @@ export function OwnerExecution({
         localStorage.removeItem(intentKey);
       throw e;
     }
-    const hash = await wallet.send(fresh.preview, async () => {
-      await api('/owner-strategy/rejected', { ticketId: intent.ticketId, walletCode: 4001 });
-      if (pending()?.ticketId === intent.ticketId) localStorage.removeItem(intentKey);
-    });
-    localStorage.setItem(intentKey, JSON.stringify({ ...intent, hash }));
+    setWalletRequested(true);
+    try {
+      const hash = await wallet.send(
+        {
+          ...fresh.preview,
+          expiresAt: Math.min(fresh.preview.expiresAt, review.preview.expiresAt),
+        },
+        async () => {
+          await api('/owner-strategy/rejected', { ticketId: intent.ticketId, walletCode: 4001 });
+          if (pending()?.ticketId === intent.ticketId) localStorage.removeItem(intentKey);
+        },
+        async () => {
+          await api('/owner-strategy/rejected', {
+            ticketId: intent.ticketId,
+            walletCode: 'not-dispatched',
+          });
+          if (pending()?.ticketId === intent.ticketId) localStorage.removeItem(intentKey);
+        },
+      );
+      localStorage.setItem(intentKey, JSON.stringify({ ...intent, hash }));
+      setNotice(`Submitted ${hash}. Reconcile strategy transaction to verify its receipt.`);
+    } finally {
+      setWalletRequested(false);
+    }
     setReview(undefined);
     setConsent(false);
   }
@@ -494,7 +540,9 @@ export function OwnerExecution({
                   </option>
                   {saved.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name} · revision {c.revision}
+                      {c.name} · {strategyNames[c.strategy]} ·{' '}
+                      {markets.find((m) => m.id === c.marketId)?.symbol} · {c.timeframes.join('/')}{' '}
+                      · revision {c.revision} · {c.id.slice(0, 8)}
                     </option>
                   ))}
                 </select>
@@ -690,10 +738,19 @@ export function OwnerExecution({
                   }
                   onClick={() => void run(submit)}
                 >
-                  {now > review.preview.expiresAt
-                    ? 'Review expired — review again'
-                    : 'Confirm strategy & open wallet'}
+                  {walletRequested
+                    ? 'Wallet approval pending — inspect MetaMask'
+                    : now > review.preview.expiresAt
+                      ? 'Review expired — review again'
+                      : 'Confirm strategy & open wallet'}
                 </button>
+                {walletRequested && (
+                  <p role="status">
+                    This request was sent to MetaMask while valid. The review timer cannot withdraw
+                    an open wallet request. Approve or reject it there; do not submit another
+                    request.
+                  </p>
+                )}
               </>
             )}
           </>

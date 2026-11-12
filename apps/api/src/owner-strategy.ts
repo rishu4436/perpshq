@@ -185,10 +185,18 @@ export function ownerStrategyRouter(directory = 'data') {
   });
   router.post('/rejected', (req, res) => {
     const b = z
-      .object({ ticketId: z.string().uuid(), walletCode: z.literal(4001) })
+      .object({
+        ticketId: z.string().uuid(),
+        walletCode: z.union([z.literal(4001), z.literal('not-dispatched')]),
+      })
       .safeParse(req.body);
     if (!b.success) {
-      res.status(422).json({ error: 'Only explicit wallet rejection can release this request' });
+      res
+        .status(422)
+        .json({
+          error:
+            'Only explicit wallet rejection or a request blocked before dispatch can release this request',
+        });
       return;
     }
     db.prepare(

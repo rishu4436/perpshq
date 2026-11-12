@@ -86,7 +86,7 @@ export function Planner({
     leverage: '',
     slippageBps: '',
   };
-  const [input, setInput] = useStored<PlanInput>('perpshq.planner.' + m.id, initial),
+  const [storedInput, setInput] = useStored<PlanInput>('perpshq.planner.' + m.id, initial),
     [preview, setPreview] = useState<Preview>(),
     [consent, setConsent] = useState(false),
     [busy, setBusy] = useState(false),
@@ -94,6 +94,11 @@ export function Planner({
     [status, setStatus] = useState('Draft'),
     [tx, setTx] = useState<string>(),
     [now, setNow] = useState(Date.now());
+  const [closeOnly, setCloseOnly] = useState(false);
+  const input = useMemo(
+    () => ({ ...storedInput, closePositionOnly: closeOnly }),
+    [storedInput, closeOnly],
+  );
   const [provenance, setProvenance] = useStored<{
     context?: MarketContextSnapshot;
     references: PlanningReference[];
@@ -166,6 +171,7 @@ export function Planner({
     if (evidence.data) {
       setStatus(evidence.data.state);
       onEvidence(evidence.data);
+      if (['success', 'reverted'].includes(evidence.data.receipt.status)) setCloseOnly(false);
     }
   }, [evidence.dataUpdatedAt]);
   useEffect(() => {
@@ -298,7 +304,7 @@ export function Planner({
         <input
           type="checkbox"
           checked={input.closePositionOnly ?? false}
-          onChange={(e) => setInput((v) => ({ ...v, closePositionOnly: e.target.checked }))}
+          onChange={(e) => setCloseOnly(e.target.checked)}
         />
         Close current position only: require the exact full position and opposite IOC on every
         review. Supervised close; the protocol does not provide atomic reduce-only protection.

@@ -40,6 +40,8 @@ for source, dest in [
     ('data/qa-fixes-2026-11-10/font-build.json', 'verification/font-build.json'),
     ('data/release-audit-final-2026-11-10.json', 'verification/npm-audit.json'),
     ('data/submission-demo-hosted-2026-11-10/manifest.json', 'demo/manifest.json'),
+    ('data/live-retest-receipts-2026-11-12.json', 'verification/live-retest-receipts-2026-11-12.json'),
+    ('data/live-retest-account-2026-11-12.json', 'verification/live-retest-account-2026-11-12.json'),
 ]:
     path = root / source
     if not path.is_file():

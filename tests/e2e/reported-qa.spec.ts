@@ -1,6 +1,16 @@
 import { test, expect } from '@playwright/test';
 import { mocks, nav, account, btc, eth, fakeHash, fillPlan } from './fixtures';
 import { h, analysis } from './fixtures';
+
+test('a new Planner visit does not inherit the previous close-only consent', async ({ page }) => {
+  await mocks(page);
+  await page.goto('/app');
+  await nav(page, 'Trade Planner');
+  const close = page.getByRole('checkbox', { name: /Close current position only/ });
+  await close.check();
+  await page.reload();
+  await expect(close).not.toBeChecked();
+});
 test('BTC price sources and timestamps are visible when the oracle differs from settlement', async ({
   page,
 }) => {

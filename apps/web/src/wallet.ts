@@ -20,6 +20,8 @@ declare global {
 export function useWallet() {
   const [provider, setProvider] = useState<Provider>();
   const providerRef = useRef<Provider | undefined>(undefined);
+  const providerPinned = useRef(false);
+  const refreshRef = useRef<() => void>(() => {});
   providerRef.current = provider;
   const [address, setAddress] = useState<string>(),
     [chain, setChain] = useState<number>(),
@@ -30,7 +32,13 @@ export function useWallet() {
   const revision = useRef(0),
     inFlight = useRef(false);
   const identity = useRef<{ address?: string; chain?: number }>({});
-  useEffect(() => discoverWalletProvider(window, window.ethereum, setProvider), []);
+  useEffect(
+    () =>
+      discoverWalletProvider(window, window.ethereum, (next) => {
+        if (!providerPinned.current) setProvider(next);
+      }),
+    [],
+  );
   useEffect(() => {
     const changed = () => setSubmission(readSubmission(localStorage));
     window.addEventListener('storage', changed);
@@ -40,13 +48,16 @@ export function useWallet() {
     const p = provider;
     if (!p) return;
     let active = true;
+    let accountRead = 0,
+      chainRead = 0;
     revision.current++;
     identity.current = {};
     setAddress(undefined);
     setChain(undefined);
     const accounts = (a: unknown) => {
       if (!active) return;
-      const address = Array.isArray(a) && typeof a[0] === 'string' ? a[0] : undefined;
+      accountRead++;
+      const address = Array.isArray(a) && typeof a[0] === 'string' ? a[0].toLowerCase() : undefined;
       if (identity.current.address === address) return;
       revision.current++;
       identity.current.address = address;
@@ -54,26 +65,53 @@ export function useWallet() {
     };
     const network = (a: unknown) => {
       if (!active) return;
-      const chain = Number(a);
+      chainRead++;
+      const parsed = Number(a);
+      const chain = a != null && Number.isSafeInteger(parsed) && parsed > 0 ? parsed : undefined;
       if (identity.current.chain === chain) return;
       revision.current++;
       identity.current.chain = chain;
       setChain(chain);
     };
-    const refresh = async () => {
-      const version = revision.current;
-      try {
-        const [a, chain] = await Promise.all([
-          p.request({ method: 'eth_accounts' }),
-          p.request({ method: 'eth_chainId' }),
-        ]);
-        if (!active || version !== revision.current) return;
-        accounts(a);
-        network(chain);
-      } catch {
-        /* A failed poll cannot prove a new wallet identity. Signing checks independently. */
+    let checkingAccounts = false,
+      checkingChain = false;
+    const refresh = () => {
+      // Independent reads: a blocked eth_accounts request must not hide chain changes.
+      if (!checkingAccounts) {
+        checkingAccounts = true;
+        const seq = ++accountRead;
+        void Promise.resolve()
+          .then(() => p.request({ method: 'eth_accounts' }))
+          .then((value) => {
+            if (active && seq === accountRead) accounts(value);
+          })
+          .catch(() => {})
+          .finally(() => {
+            checkingAccounts = false;
+          });
+      }
+      if (!checkingChain) {
+        checkingChain = true;
+        const seq = ++chainRead;
+        const timeout = setTimeout(() => {
+          if (active && seq === chainRead) network(undefined);
+          checkingChain = false;
+        }, 5000);
+        void Promise.resolve()
+          .then(() => p.request({ method: 'eth_chainId' }))
+          .then((value) => {
+            if (active && seq === chainRead) network(value);
+          })
+          .catch(() => {
+            if (active && seq === chainRead) network(undefined);
+          })
+          .finally(() => {
+            clearTimeout(timeout);
+            checkingChain = false;
+          });
       }
     };
+    refreshRef.current = refresh;
     void refresh();
     const poll = setInterval(() => void refresh(), 3000);
     const focus = () => void refresh();
@@ -84,6 +122,7 @@ export function useWallet() {
     const disconnected = () => {
       if (!active) return;
       revision.current++;
+      chainRead++;
       // EIP-1193 disconnect can mean a chain transport transition, not revoked accounts.
       // Keep the owner view; accountsChanged/eth_accounts still prove account revocation.
       identity.current.chain = undefined;
@@ -112,7 +151,7 @@ export function useWallet() {
     if (p !== providerRef.current || version !== revision.current)
       throw new Error('Wallet changed. Review again.');
     const currentAddress = Array.isArray(actualAccounts)
-      ? (actualAccounts[0] as string | undefined)
+      ? (actualAccounts[0] as string | undefined)?.toLowerCase()
       : undefined;
     const currentChain = Number(actualChain);
     if (currentAddress?.toLowerCase() !== address.toLowerCase() || currentChain !== chain) {
@@ -141,12 +180,15 @@ export function useWallet() {
         throw new Error(
           'No browser wallet found. Open PerpsHQ in a browser with an EIP-1193 wallet such as MetaMask.',
         );
+      providerPinned.current = true;
       const a = (await p.request({ method: 'eth_requestAccounts' })) as string[];
       if (p !== providerRef.current) throw new Error('Wallet provider changed. Connect again.');
-      setAddress(a[0]);
+      const nextAddress = a[0]?.toLowerCase();
+      setAddress(nextAddress);
       const nextChain = Number(await p.request({ method: 'eth_chainId' }));
-      identity.current = { address: a[0], chain: nextChain };
-      revision.current++;
+      if (identity.current.address !== nextAddress || identity.current.chain !== nextChain)
+        revision.current++;
+      identity.current = { address: nextAddress, chain: nextChain };
       setChain(nextChain);
     } catch (e) {
       setError(errorMessage(e));
@@ -206,7 +248,11 @@ export function useWallet() {
     if (typeof signature !== 'string') throw new Error('Wallet did not return a signature');
     return signature;
   }
-  async function send(preview: Preview, onRejected?: () => Promise<void>) {
+  async function send(
+    preview: Preview,
+    onRejected?: () => Promise<void>,
+    onNotDispatched?: () => Promise<void>,
+  ) {
     if (inFlight.current)
       throw new SubmissionFailure('A wallet request is already in progress.', 'blocked');
     const p = providerRef.current;
@@ -234,6 +280,10 @@ export function useWallet() {
           },
         );
       return await run();
+    } catch (error) {
+      if (error instanceof SubmissionFailure && error.outcome === 'blocked')
+        await onNotDispatched?.();
+      throw error;
     } finally {
       inFlight.current = false;
     }
@@ -267,6 +317,7 @@ export function useWallet() {
     error,
     connect,
     checkConnection,
+    refreshNetwork: () => refreshRef.current(),
     switchChain,
     signMessage,
     send,
